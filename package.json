@@ -1,0 +1,57 @@
+{
+  "name": "mcp-oauth-provider-adapters",
+  "version": "0.1.0",
+  "description": "An OAuth adapter framework for developers that can add OAuth providers to remote MCP servers with minimal friction.",
+  "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build": "echo \"No build step required\"",
+    "dev": "echo \"Development mode not configured\"",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "oauth",
+    "adapters",
+    "providers",
+    "authentication",
+    "authorization",
+    "framework",
+    "heroku"
+  ],
+  "author": "Heroku",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heroku/mcp-oauth-provider-adapters.git"
+  },
+  "bugs": {
+    "url": "https://github.com/heroku/mcp-oauth-provider-adapters/issues"
+  },
+  "homepage": "https://github.com/heroku/mcp-oauth-provider-adapters#readme",
+  "files": [
+    "src/",
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "@types/node": "^20.11.0"
+  },
+  "dependencies": {},
+  "peerDependencies": {},
+  "optionalDependencies": {},
+  "publishConfig": {
+    "access": "public"
+  }
+}
