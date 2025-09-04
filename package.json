@@ -6,15 +6,22 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "build": "echo \"No build step required\"",
-    "dev": "echo \"Development mode not configured\"",
-    "start": "node index.js"
+  "main": "./lib/cjs/index.js",
+  "module": "./lib/esm/index.js",
+  "types": "./lib/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/esm/index.js",
+      "require": "./lib/cjs/index.js",
+      "types": "./lib/esm/index.d.ts"
+    }
+  },
+"scripts": {
+    "build:cjs": "tsc --module commonjs --outDir lib/cjs --target esnext",
+    "build:esm": "tsc --module esnext --outDir lib/esm --target esnext",
+    "build": "eslint . --config .eslintrc --fix && prettier -w --config ./.prettier.mjs ./src/**/*.ts && (npm run build:cjs & npm run build:esm)",
+    "test": "c8 mocha --forbid-only \"test/**/*.test.ts\"",
+    "test:local": "c8 mocha \"${npm_config_file:-test/**/*.test.+(ts|tsx)}\""
   },
   "author": "Heroku",
   "license": "Apache-2.0",
