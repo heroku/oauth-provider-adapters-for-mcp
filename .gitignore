@@ -8,3 +8,7 @@ coverage
 
 # Dependency directories
 node_modules/
+
+# Additional files
+.env
+.cursor/
