@@ -20,8 +20,7 @@
     "build:cjs": "tsc --module commonjs --outDir lib/cjs --target esnext",
     "build:esm": "tsc --module esnext --outDir lib/esm --target esnext",
     "build": "eslint src/**/*.ts --config .eslintrc.json --fix && npm run build:cjs && npm run build:esm",
-    "test": "c8 mocha --forbid-only \"test/**/*.test.ts\"",
-    "test:local": "c8 mocha \"${npm_config_file:-test/**/*.test.+(ts|tsx)}\""
+    "test": "c8 mocha --forbid-only \"test/**/*.test.ts\""
   },
   "author": "Heroku",
   "license": "Apache-2.0",
