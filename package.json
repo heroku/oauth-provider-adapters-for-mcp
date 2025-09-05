@@ -4,7 +4,7 @@
   "description": "An OAuth adapter framework for developers that can add OAuth providers to remote MCP servers with minimal friction.",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "main": "./lib/cjs/index.js",
   "module": "./lib/esm/index.js",
