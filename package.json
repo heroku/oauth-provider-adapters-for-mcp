@@ -16,10 +16,10 @@
       "types": "./lib/esm/index.d.ts"
     }
   },
-"scripts": {
+  "scripts": {
     "build:cjs": "tsc --module commonjs --outDir lib/cjs --target esnext",
     "build:esm": "tsc --module esnext --outDir lib/esm --target esnext",
-    "build": "eslint . --config .eslintrc --fix && prettier -w --config ./.prettier.mjs ./src/**/*.ts && (npm run build:cjs & npm run build:esm)",
+    "build": "eslint src/**/*.ts --config .eslintrc.json --fix && npm run build:cjs && npm run build:esm",
     "test": "c8 mocha --forbid-only \"test/**/*.test.ts\"",
     "test:local": "c8 mocha \"${npm_config_file:-test/**/*.test.+(ts|tsx)}\""
   },
@@ -39,20 +39,19 @@
     "README.md",
     "LICENSE"
   ],
-  "dependencies": {},
   "devDependencies": {
-    "eslint": "^8.57.0",
-    "prettier": "^3.2.5",
-    "@types/node": "^20.11.0",
-    "typescript": "^5.0.0",
-    "mocha": "^10.0.0",
-    "chai": "^4.3.0",
-    "@types/mocha": "^10.0.0",
     "@types/chai": "^4.3.0",
-    "ts-node": "^10.9.1",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "c8": "^8.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0"
+    "chai": "^4.3.0",
+    "eslint": "^8.57.0",
+    "mocha": "^10.0.0",
+    "prettier": "^3.2.5",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
   },
   "publishConfig": {
     "access": "private"
