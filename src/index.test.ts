@@ -4,10 +4,10 @@
  */
 
 import { expect } from 'chai';
-import { describe, it} from 'mocha';
+import { describe, it } from 'mocha';
 
 // Import the module being tested
-import { version, greet } from '../src/index.js';
+import { version, greet } from './index.js';
 
 describe('MCP OAuth Provider Adapters', () => {
   describe('version', () => {
@@ -33,7 +33,7 @@ describe('MCP OAuth Provider Adapters', () => {
         { input: 'Alice', expected: 'Hello, Alice!' },
         { input: 'Bob', expected: 'Hello, Bob!' },
         { input: 'TypeScript', expected: 'Hello, TypeScript!' },
-        { input: '', expected: 'Hello, !' }
+        { input: '', expected: 'Hello, !' },
       ];
 
       testCases.forEach(({ input, expected }) => {
@@ -44,8 +44,8 @@ describe('MCP OAuth Provider Adapters', () => {
 
     it('should handle special characters in names', () => {
       const specialNames = ['@user', 'user-name', 'user_name', 'user.name'];
-      
-      specialNames.forEach(name => {
+
+      specialNames.forEach((name) => {
         const result = greet(name);
         expect(result).to.be.a('string');
         expect(result).to.include(name);
@@ -56,14 +56,14 @@ describe('MCP OAuth Provider Adapters', () => {
 
   describe('default export', () => {
     it('should export a default object', async () => {
-      const module = await import('../src/index.js');
+      const module = await import('./index.js');
       expect(module.default).to.be.an('object');
     });
 
     it('should have version and greet properties', async () => {
-      const module = await import('../src/index.js');
+      const module = await import('./index.js');
       const defaultExport = module.default;
-      
+
       expect(defaultExport).to.have.property('version');
       expect(defaultExport).to.have.property('greet');
       expect(defaultExport.version).to.equal(version);
@@ -73,8 +73,8 @@ describe('MCP OAuth Provider Adapters', () => {
 
   describe('module structure', () => {
     it('should be importable as ES module', async () => {
-      const module = await import('../src/index.js');
-      
+      const module = await import('./index.js');
+
       expect(module).to.have.property('version');
       expect(module).to.have.property('greet');
       expect(module).to.have.property('default');
