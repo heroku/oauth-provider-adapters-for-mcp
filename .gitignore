@@ -1,15 +1,18 @@
+# Ignore MacOS files
 .DS_Store
 
 # Coverage directory used by tools like istanbul
 coverage
-
-# nyc test coverage
-.nyc_output
 
 # Dependency directories
 node_modules/
 
 # Additional files
 .env
-.cursor/
-/lib
+/dist
+
+# Ignore Cursor files
+.cursor
+.cursorignore
+.cursorindexingignore
+tasks
