@@ -1,0 +1,18 @@
+# Ignore MacOS files
+.DS_Store
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Dependency directories
+node_modules/
+
+# Additional files
+.env
+/dist
+
+# Ignore Cursor files
+.cursor
+.cursorignore
+.cursorindexingignore
+tasks
