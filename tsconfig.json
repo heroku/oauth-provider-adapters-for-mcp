@@ -5,17 +5,17 @@
     "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "node",
-    
+
     /* Emit */
     "declaration": true,
     "outDir": "./lib",
     "rootDir": "./src",
     "importHelpers": true,
-    
+
     /* Interop Constraints */
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    
+
     /* Type Checking */
     "strict": true,
     "noImplicitAny": true,
@@ -25,21 +25,19 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    
+
     /* Completeness */
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
-    
+
     /* Node.js specific */
     "resolveJsonModule": true,
     "allowImportingTsExtensions": false,
     "noEmit": false,
-    
+
     /* Advanced */
     "incremental": true,
     "tsBuildInfoFile": "./lib/.tsbuildinfo"
   },
-  "include": [
-    "src/**/*"
-  ],
+  "include": ["src/**/*"]
 }

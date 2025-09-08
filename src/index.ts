@@ -10,5 +10,5 @@ export function greet(name: string): string {
 
 export default {
   version,
-  greet
+  greet,
 };
