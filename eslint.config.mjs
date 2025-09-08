@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // ESLint flat config for a TypeScript project with dual-build (CJS/ESM) outputs.
-// - Ignores built artifacts in `dist/` and `lib/`
+// - Ignores built artifacts in `dist/`
 // - Applies base JS recommended rules to JS files
 // - Applies TypeScript parsing and TS-specific rules to TS files
 // - Enables common Mocha globals in test files

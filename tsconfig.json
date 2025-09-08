@@ -8,7 +8,7 @@
 
     /* Emit */
     "declaration": true,
-    "outDir": "./lib",
+    "outDir": "./dist",
     "rootDir": "./src",
     "importHelpers": true,
 
@@ -37,7 +37,7 @@
 
     /* Advanced */
     "incremental": true,
-    "tsBuildInfoFile": "./lib/.tsbuildinfo"
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
   "include": ["src/**/*"]
 }
