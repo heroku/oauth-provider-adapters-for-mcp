@@ -1,0 +1,8 @@
+{
+  "**/*.{ts,tsx}": [
+    "npm run format",
+    "npm run lint",
+    "bash -c 'npm run type-check'"
+  ],
+  "*.{json,md,yml,yaml}": ["npm run format"]
+}
