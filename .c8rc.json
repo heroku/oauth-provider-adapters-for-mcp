@@ -1,9 +1,10 @@
 {
   "all": true,
   "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts", "dist/**/*", "src/**/*types.ts"],
   "reporter": ["text", "html", "lcov"],
   "reports-dir": "coverage",
-  "temp-dir": ".nyc_output",
+  "exclude-after-remap": true,
   "check-coverage": true,
   "lines": 80,
   "functions": 80,
