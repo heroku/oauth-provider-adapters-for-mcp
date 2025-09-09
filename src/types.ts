@@ -49,3 +49,18 @@ export type ProviderQuirks = {
   /** List of custom parameter keys supported by the provider */
   customParameters: string[];
 };
+/**
+ * Standardized OAuth error shape for consistent error handling
+ */
+export type OAuthError = {
+  /** HTTP status code */
+  statusCode: number;
+  /** OAuth error code */
+  error: string;
+  /** Human-readable error description */
+  error_description?: string;
+  /** Endpoint that generated the error */
+  endpoint?: string;
+  /** Provider issuer identifier */
+  issuer?: string;
+};
