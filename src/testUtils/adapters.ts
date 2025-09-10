@@ -112,7 +112,7 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
     return this.options.refreshTokenResponse!;
   }
 
-  public getProviderQuirks(): ProviderQuirks {
+  protected computeProviderQuirks(): ProviderQuirks {
     const defaultQuirks: ProviderQuirks = {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,
@@ -189,7 +189,7 @@ export class TokenMappingTestAdapter extends BaseOAuthAdapter {
     return { accessToken: 'X' };
   }
 
-  public getProviderQuirks(): ProviderQuirks {
+  protected computeProviderQuirks(): ProviderQuirks {
     return {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,
@@ -242,7 +242,7 @@ export class ErrorThrowingTestAdapter extends BaseOAuthAdapter {
     return { accessToken: 'X' };
   }
 
-  public getProviderQuirks(): ProviderQuirks {
+  protected computeProviderQuirks(): ProviderQuirks {
     return {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,
@@ -316,7 +316,7 @@ export class RefreshTokenTestAdapter extends BaseOAuthAdapter {
     };
   }
 
-  public getProviderQuirks(): ProviderQuirks {
+  protected computeProviderQuirks(): ProviderQuirks {
     return {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,

@@ -23,6 +23,11 @@ export abstract class BaseOAuthAdapter {
   private _initialized = false;
 
   /**
+   * Memoized cache of computed provider quirks
+   */
+  private providerQuirksCache?: ProviderQuirks;
+
+  /**
    * Creates a new BaseOAuthAdapter instance
    *
    * @param config - Provider-specific configuration including client credentials, scopes, and endpoints
@@ -79,6 +84,12 @@ export abstract class BaseOAuthAdapter {
    * Subclasses must implement this to provide the correct endpoint.
    */
   protected abstract getAuthorizationEndpoint(): string;
+
+  /**
+   * Compute provider-specific capability flags and quirks.
+   * Implementations MUST NOT perform network I/O.
+   */
+  protected abstract computeProviderQuirks(): ProviderQuirks;
 
   /**
    * Build base authorization parameters for the OAuth flow.
@@ -158,9 +169,16 @@ export abstract class BaseOAuthAdapter {
   public abstract refreshToken(refreshToken: string): Promise<TokenResponse>;
 
   /**
-   * Return provider-specific capability flags and quirks.
+   * Return provider-specific capability flags and quirks. Lazily memoizes
+   * the result of {@link computeProviderQuirks}. This method performs no
+   * network I/O.
    */
-  public abstract getProviderQuirks(): ProviderQuirks;
+  public getProviderQuirks(): ProviderQuirks {
+    if (!this.providerQuirksCache) {
+      this.providerQuirksCache = this.computeProviderQuirks();
+    }
+    return this.providerQuirksCache;
+  }
 
   /**
    * Normalize heterogeneous error shapes from HTTP libraries, provider SDKs,
