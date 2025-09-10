@@ -36,7 +36,12 @@ function buildError(
   error: string,
   description?: string
 ): ErrorBuilder {
-  const httpError = createError(statusCode, error, {
+  // http-errors deprecates non-4xx/5xx status codes; coerce to 500 in those cases
+  const statusForHttpError =
+    statusCode >= 400 && statusCode < 600
+      ? statusCode
+      : StatusCodes.INTERNAL_SERVER_ERROR;
+  const httpError = createError(statusForHttpError, error, {
     error_description: description,
     error: error,
   });
