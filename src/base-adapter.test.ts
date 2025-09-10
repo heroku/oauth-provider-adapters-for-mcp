@@ -20,13 +20,16 @@ describe('BaseOAuthAdapter', () => {
           return this.config;
         }
         public async initialize(): Promise<void> {
-          return;
+          await super.initialize();
+        }
+        protected getAuthorizationEndpoint(): string {
+          return 'https://auth.example.com/authorize';
         }
         public async generateAuthUrl(
           interactionId: string,
           redirectUrl: string
         ): Promise<string> {
-          return `${interactionId}:${redirectUrl}`;
+          return super.generateAuthUrl(interactionId, redirectUrl);
         }
         public async exchangeCode(
           code: string,
@@ -72,13 +75,16 @@ describe('BaseOAuthAdapter', () => {
 
       class MinimalTestAdapter extends BaseOAuthAdapter {
         public async initialize(): Promise<void> {
-          return;
+          await super.initialize();
+        }
+        protected getAuthorizationEndpoint(): string {
+          return 'https://auth.example.com/authorize';
         }
         public async generateAuthUrl(
           interactionId: string,
           redirectUrl: string
         ): Promise<string> {
-          return `${interactionId}:${redirectUrl}`;
+          return super.generateAuthUrl(interactionId, redirectUrl);
         }
         public async exchangeCode(
           code: string,
@@ -125,10 +131,13 @@ describe('BaseOAuthAdapter', () => {
     it('should expose abstract API on subclasses', () => {
       class Impl extends BaseOAuthAdapter {
         public async initialize(): Promise<void> {
-          return;
+          await super.initialize();
+        }
+        protected getAuthorizationEndpoint(): string {
+          return 'https://auth.example.com/authorize';
         }
         public async generateAuthUrl(i: string, r: string): Promise<string> {
-          return `${i}:${r}`;
+          return super.generateAuthUrl(i, r);
         }
         public async exchangeCode(
           c: string,
@@ -163,16 +172,136 @@ describe('BaseOAuthAdapter', () => {
     });
   });
 
+  describe('generateAuthUrl', () => {
+    class TestAdapter extends BaseOAuthAdapter {
+      public async initialize(): Promise<void> {
+        await super.initialize();
+      }
+      protected getAuthorizationEndpoint(): string {
+        return 'https://auth.example.com/authorize';
+      }
+
+      public async exchangeCode(
+        _code: string,
+        _verifier: string,
+        _redirectUrl: string
+      ): Promise<import('./types.js').TokenResponse> {
+        return { accessToken: 'test' };
+      }
+
+      public async refreshToken(
+        _refreshToken: string
+      ): Promise<import('./types.js').TokenResponse> {
+        return { accessToken: 'refresh' };
+      }
+
+      public getProviderQuirks(): import('./types.js').ProviderQuirks {
+        return {
+          supportsOIDCDiscovery: true,
+          requiresPKCE: true,
+          supportsRefreshTokens: true,
+          customParameters: ['audience'],
+        };
+      }
+    }
+
+    it('should throw normalized error if not initialized', async () => {
+      const adapter = new TestAdapter(mockConfig);
+
+      try {
+        await adapter.generateAuthUrl(
+          'test-interaction',
+          'https://example.com/callback'
+        );
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).to.have.property('statusCode', 500);
+        expect(error).to.have.property('error', 'server_error');
+        expect(error).to.have.property('error_description');
+        expect(error).to.have.property('endpoint', 'generateAuthUrl');
+        expect(error).to.have.property('issuer', 'https://example.com');
+      }
+    });
+
+    it('should generate URL with required parameters after initialization', async () => {
+      const adapter = new TestAdapter(mockConfig);
+      await adapter.initialize();
+
+      const url = await adapter.generateAuthUrl(
+        'test-interaction',
+        'https://example.com/callback'
+      );
+
+      expect(url).to.include('https://auth.example.com/authorize');
+      expect(url).to.include('response_type=code');
+      expect(url).to.include('client_id=test-client-id');
+      expect(url).to.include(
+        'redirect_uri=https%3A%2F%2Fexample.com%2Fcallback'
+      ); // URL-encoded
+      expect(url).to.include('scope=openid+profile');
+      expect(url).to.include('state=test-interaction');
+    });
+
+    it('should merge custom parameters with base parameters', async () => {
+      const configWithCustom = {
+        ...mockConfig,
+        customParameters: {
+          audience: 'test-audience',
+          prompt: 'login',
+        },
+      };
+
+      const adapter = new TestAdapter(configWithCustom);
+      await adapter.initialize();
+
+      const url = await adapter.generateAuthUrl(
+        'test-interaction',
+        'https://example.com/callback'
+      );
+
+      expect(url).to.include('audience=test-audience');
+      expect(url).to.include('prompt=login');
+      expect(url).to.include('response_type=code');
+      expect(url).to.include('client_id=test-client-id');
+    });
+
+    it('should handle custom parameters that override base parameters', async () => {
+      const configWithOverride = {
+        ...mockConfig,
+        customParameters: {
+          scope: 'custom-scope',
+          response_type: 'code id_token',
+        },
+      };
+
+      const adapter = new TestAdapter(configWithOverride);
+      await adapter.initialize();
+
+      const url = await adapter.generateAuthUrl(
+        'test-interaction',
+        'https://example.com/callback'
+      );
+
+      // Custom parameters should override base parameters
+      expect(url).to.include('scope=custom-scope');
+      expect(url).to.include('response_type=code+id_token');
+      expect(url).to.include('client_id=test-client-id');
+    });
+  });
+
   describe('normalizeError', () => {
     class TestAdapter extends BaseOAuthAdapter {
       public async initialize(): Promise<void> {
-        return;
+        await super.initialize();
+      }
+      protected getAuthorizationEndpoint(): string {
+        return 'https://auth.example.com/authorize';
       }
       public async generateAuthUrl(
         interactionId: string,
         redirectUrl: string
       ): Promise<string> {
-        return `${interactionId}:${redirectUrl}`;
+        return super.generateAuthUrl(interactionId, redirectUrl);
       }
       public async exchangeCode(
         code: string,
@@ -289,6 +418,9 @@ describe('BaseOAuthAdapter', () => {
         public async initialize(): Promise<void> {
           return;
         }
+        protected getAuthorizationEndpoint(): string {
+          return 'https://auth.example.com/authorize';
+        }
         public async generateAuthUrl(i: string, r: string): Promise<string> {
           return `${i}:${r}`;
         }
@@ -347,6 +479,9 @@ describe('BaseOAuthAdapter', () => {
       class DummyError extends BaseOAuthAdapter {
         public async initialize(): Promise<void> {
           return;
+        }
+        protected getAuthorizationEndpoint(): string {
+          return 'https://auth.example.com/authorize';
         }
         public async generateAuthUrl(i: string, r: string): Promise<string> {
           return `${i}:${r}`;
@@ -414,6 +549,9 @@ describe('BaseOAuthAdapter', () => {
         public async initialize(): Promise<void> {
           return;
         }
+        protected getAuthorizationEndpoint(): string {
+          return 'https://auth.example.com/authorize';
+        }
         public async generateAuthUrl(i: string, r: string): Promise<string> {
           return `${i}:${r}`;
         }
@@ -459,6 +597,9 @@ describe('BaseOAuthAdapter', () => {
       class DummyNoRefresh extends BaseOAuthAdapter {
         public async initialize(): Promise<void> {
           return;
+        }
+        protected getAuthorizationEndpoint(): string {
+          return 'https://auth.example.com/authorize';
         }
         public async generateAuthUrl(i: string, r: string): Promise<string> {
           return `${i}:${r}`;

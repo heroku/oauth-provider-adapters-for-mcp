@@ -18,6 +18,11 @@ export abstract class BaseOAuthAdapter {
   protected readonly config: ProviderConfig;
 
   /**
+   * Tracks whether the adapter has been initialized
+   */
+  private _initialized = false;
+
+  /**
    * Creates a new BaseOAuthAdapter instance
    *
    * @param config - Provider-specific configuration including client credentials, scopes, and endpoints
@@ -34,8 +39,11 @@ export abstract class BaseOAuthAdapter {
   /**
    * Initialize provider-specific resources.
    * Subclasses should perform any discovery, validation or setup work here.
+   * Must call super.initialize() to mark the adapter as initialized.
    */
-  public abstract initialize(): Promise<void>;
+  public async initialize(): Promise<void> {
+    this._initialized = true;
+  }
 
   /**
    * Generate an authorization URL for starting the OAuth flow.
@@ -43,11 +51,75 @@ export abstract class BaseOAuthAdapter {
    * @param interactionId - Correlation identifier for the auth interaction
    * @param redirectUrl - The redirect/callback URL to return to after consent
    * @returns A fully formed authorization URL
+   * @throws {OAuthError} If the adapter has not been initialized
    */
-  public abstract generateAuthUrl(
+  public async generateAuthUrl(
     interactionId: string,
     redirectUrl: string
-  ): Promise<string>;
+  ): Promise<string> {
+    if (!this._initialized) {
+      throw this.normalizeError(
+        new Error('Adapter must be initialized before generating auth URL'),
+        { endpoint: 'generateAuthUrl' }
+      );
+    }
+
+    const authEndpoint = this.getAuthorizationEndpoint();
+    const baseParams = this.buildBaseAuthParams(interactionId, redirectUrl);
+    const customParams = this.config.customParameters || {};
+
+    // Merge custom parameters with base parameters
+    const allParams = { ...baseParams, ...customParams };
+
+    return this.buildAuthorizeUrl(authEndpoint, allParams);
+  }
+
+  /**
+   * Get the authorization endpoint URL from provider metadata.
+   * Subclasses must implement this to provide the correct endpoint.
+   */
+  protected abstract getAuthorizationEndpoint(): string;
+
+  /**
+   * Build base authorization parameters for the OAuth flow.
+   *
+   * @param interactionId - Correlation identifier for the auth interaction
+   * @param redirectUrl - The redirect/callback URL to return to after consent
+   * @returns Base parameters object
+   */
+  protected buildBaseAuthParams(
+    interactionId: string,
+    redirectUrl: string
+  ): Record<string, string> {
+    return {
+      response_type: 'code',
+      client_id: this.config.clientId,
+      redirect_uri: redirectUrl,
+      scope: this.config.scopes.join(' '),
+      state: interactionId,
+    };
+  }
+
+  /**
+   * Build a complete authorization URL with query parameters.
+   *
+   * @param endpoint - The authorization endpoint URL
+   * @param params - Query parameters to include
+   * @returns Complete authorization URL
+   */
+  protected buildAuthorizeUrl(
+    endpoint: string,
+    params: Record<string, string>
+  ): string {
+    const url = new URL(endpoint);
+
+    // Add all parameters as query string
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+
+    return url.toString();
+  }
 
   /**
    * Exchange an authorization code for tokens.
