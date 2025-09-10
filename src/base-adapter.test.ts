@@ -1,6 +1,12 @@
 import { expect } from 'chai';
 import { BaseOAuthAdapter } from './base-adapter.js';
 import type { OAuthError, ProviderConfig } from './types.js';
+import {
+  ConfigurableTestAdapter,
+  TokenMappingTestAdapter,
+  ErrorThrowingTestAdapter,
+  RefreshTokenTestAdapter,
+} from './testUtils/adapters.js';
 
 describe('BaseOAuthAdapter', () => {
   const mockConfig: ProviderConfig = {
@@ -15,49 +21,7 @@ describe('BaseOAuthAdapter', () => {
 
   describe('constructor', () => {
     it('should store config as protected readonly property', () => {
-      class TestAdapter extends BaseOAuthAdapter {
-        public getConfig() {
-          return this.config;
-        }
-        public async initialize(): Promise<void> {
-          await super.initialize();
-        }
-        protected getAuthorizationEndpoint(): string {
-          return 'https://auth.example.com/authorize';
-        }
-        public async generateAuthUrl(
-          interactionId: string,
-          redirectUrl: string
-        ): Promise<string> {
-          return super.generateAuthUrl(interactionId, redirectUrl);
-        }
-        public async exchangeCode(
-          code: string,
-          verifier: string,
-          redirectUrl: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void code;
-          void verifier;
-          void redirectUrl;
-          return { accessToken: 't' };
-        }
-        public async refreshToken(
-          refreshToken: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void refreshToken;
-          return { accessToken: 'r' };
-        }
-        public getProviderQuirks(): import('./types.js').ProviderQuirks {
-          return {
-            supportsOIDCDiscovery: true,
-            requiresPKCE: true,
-            supportsRefreshTokens: true,
-            customParameters: [],
-          };
-        }
-      }
-
-      const adapter = new TestAdapter(mockConfig);
+      const adapter = new ConfigurableTestAdapter(mockConfig);
       const storedConfig = adapter.getConfig();
 
       expect(storedConfig).to.equal(mockConfig);
@@ -73,46 +37,19 @@ describe('BaseOAuthAdapter', () => {
         scopes: ['read'],
       };
 
-      class MinimalTestAdapter extends BaseOAuthAdapter {
-        public async initialize(): Promise<void> {
-          await super.initialize();
-        }
-        protected getAuthorizationEndpoint(): string {
-          return 'https://auth.example.com/authorize';
-        }
-        public async generateAuthUrl(
-          interactionId: string,
-          redirectUrl: string
-        ): Promise<string> {
-          return super.generateAuthUrl(interactionId, redirectUrl);
-        }
-        public async exchangeCode(
-          code: string,
-          verifier: string,
-          redirectUrl: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void code;
-          void verifier;
-          void redirectUrl;
-          return { accessToken: 'x' };
-        }
-        public async refreshToken(
-          refreshToken: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void refreshToken;
-          return { accessToken: 'y' };
-        }
-        public getProviderQuirks(): import('./types.js').ProviderQuirks {
-          return {
-            supportsOIDCDiscovery: false,
-            requiresPKCE: false,
-            supportsRefreshTokens: false,
-            customParameters: [],
-          };
-        }
-      }
+      const minimalOptions = {
+        quirks: {
+          supportsOIDCDiscovery: false,
+          requiresPKCE: false,
+          supportsRefreshTokens: false,
+        },
+        tokenResponse: { accessToken: 'x' },
+        refreshTokenResponse: { accessToken: 'y' },
+      };
 
-      expect(() => new MinimalTestAdapter(minimalConfig)).to.not.throw();
+      expect(
+        () => new ConfigurableTestAdapter(minimalConfig, minimalOptions)
+      ).to.not.throw();
     });
   });
 
@@ -129,43 +66,11 @@ describe('BaseOAuthAdapter', () => {
     });
 
     it('should expose abstract API on subclasses', () => {
-      class Impl extends BaseOAuthAdapter {
-        public async initialize(): Promise<void> {
-          await super.initialize();
-        }
-        protected getAuthorizationEndpoint(): string {
-          return 'https://auth.example.com/authorize';
-        }
-        public async generateAuthUrl(i: string, r: string): Promise<string> {
-          return super.generateAuthUrl(i, r);
-        }
-        public async exchangeCode(
-          c: string,
-          v: string,
-          r: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void c;
-          void v;
-          void r;
-          return { accessToken: 'ok' };
-        }
-        public async refreshToken(
-          t: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void t;
-          return { accessToken: 'ok2' };
-        }
-        public getProviderQuirks(): import('./types.js').ProviderQuirks {
-          return {
-            supportsOIDCDiscovery: true,
-            requiresPKCE: true,
-            supportsRefreshTokens: true,
-            customParameters: [],
-          };
-        }
-      }
+      const adapter = new ConfigurableTestAdapter(mockConfig, {
+        tokenResponse: { accessToken: 'ok' },
+        refreshTokenResponse: { accessToken: 'ok2' },
+      });
 
-      const adapter = new Impl(mockConfig);
       expect(adapter).to.be.instanceOf(BaseOAuthAdapter);
       expect(adapter.generateAuthUrl).to.be.a('function');
       expect(adapter.refreshToken).to.be.a('function');
@@ -173,40 +78,11 @@ describe('BaseOAuthAdapter', () => {
   });
 
   describe('generateAuthUrl', () => {
-    class TestAdapter extends BaseOAuthAdapter {
-      public async initialize(): Promise<void> {
-        await super.initialize();
-      }
-      protected getAuthorizationEndpoint(): string {
-        return 'https://auth.example.com/authorize';
-      }
-
-      public async exchangeCode(
-        _code: string,
-        _verifier: string,
-        _redirectUrl: string
-      ): Promise<import('./types.js').TokenResponse> {
-        return { accessToken: 'test' };
-      }
-
-      public async refreshToken(
-        _refreshToken: string
-      ): Promise<import('./types.js').TokenResponse> {
-        return { accessToken: 'refresh' };
-      }
-
-      public getProviderQuirks(): import('./types.js').ProviderQuirks {
-        return {
-          supportsOIDCDiscovery: true,
-          requiresPKCE: true,
-          supportsRefreshTokens: true,
-          customParameters: ['audience'],
-        };
-      }
-    }
-
     it('should throw normalized error if not initialized', async () => {
-      const adapter = new TestAdapter(mockConfig);
+      const adapter = new ConfigurableTestAdapter(mockConfig, {
+        initialized: false,
+        quirks: { customParameters: ['audience'] },
+      });
 
       try {
         await adapter.generateAuthUrl(
@@ -224,7 +100,9 @@ describe('BaseOAuthAdapter', () => {
     });
 
     it('should generate URL with required parameters after initialization', async () => {
-      const adapter = new TestAdapter(mockConfig);
+      const adapter = new ConfigurableTestAdapter(mockConfig, {
+        quirks: { customParameters: ['audience'] },
+      });
       await adapter.initialize();
 
       const url = await adapter.generateAuthUrl(
@@ -251,7 +129,7 @@ describe('BaseOAuthAdapter', () => {
         },
       };
 
-      const adapter = new TestAdapter(configWithCustom);
+      const adapter = new ConfigurableTestAdapter(configWithCustom);
       await adapter.initialize();
 
       const url = await adapter.generateAuthUrl(
@@ -274,7 +152,7 @@ describe('BaseOAuthAdapter', () => {
         },
       };
 
-      const adapter = new TestAdapter(configWithOverride);
+      const adapter = new ConfigurableTestAdapter(configWithOverride);
       await adapter.initialize();
 
       const url = await adapter.generateAuthUrl(
@@ -290,62 +168,10 @@ describe('BaseOAuthAdapter', () => {
   });
 
   describe('normalizeError', () => {
-    class TestAdapter extends BaseOAuthAdapter {
-      public async initialize(): Promise<void> {
-        await super.initialize();
-      }
-      protected getAuthorizationEndpoint(): string {
-        return 'https://auth.example.com/authorize';
-      }
-      public async generateAuthUrl(
-        interactionId: string,
-        redirectUrl: string
-      ): Promise<string> {
-        return super.generateAuthUrl(interactionId, redirectUrl);
-      }
-      public async exchangeCode(
-        code: string,
-        verifier: string,
-        redirectUrl: string
-      ): Promise<import('./types.js').TokenResponse> {
-        void code;
-        void verifier;
-        void redirectUrl;
-        return {
-          accessToken: 'access',
-        };
-      }
-      public async refreshToken(
-        refreshToken: string
-      ): Promise<import('./types.js').TokenResponse> {
-        void refreshToken;
-        return { accessToken: 'access2' };
-      }
-      public getProviderQuirks(): import('./types.js').ProviderQuirks {
-        return {
-          supportsOIDCDiscovery: true,
-          requiresPKCE: true,
-          supportsRefreshTokens: true,
-          customParameters: [],
-        };
-      }
-
-      public exposeNormalize(
-        e: unknown,
-        c: { endpoint?: string; issuer?: string }
-      ): OAuthError {
-        return (
-          this as unknown as {
-            normalizeError: (
-              e: unknown,
-              c: { endpoint?: string; issuer?: string }
-            ) => OAuthError;
-          }
-        ).normalizeError(e, c);
-      }
-    }
-
-    const adapter = new TestAdapter(mockConfig);
+    const adapter = new ConfigurableTestAdapter(mockConfig, {
+      tokenResponse: { accessToken: 'access' },
+      refreshTokenResponse: { accessToken: 'access2' },
+    });
 
     it('should pass through OAuth-shaped errors', () => {
       const err: OAuthError = {
@@ -356,7 +182,7 @@ describe('BaseOAuthAdapter', () => {
         issuer: 'https://example.com',
       };
 
-      const normalized = adapter.exposeNormalize(err, {});
+      const normalized = adapter.exposeNormalizeError(err, {});
       expect(normalized).to.deep.include({
         statusCode: 400,
         error: 'invalid_request',
@@ -372,7 +198,7 @@ describe('BaseOAuthAdapter', () => {
         },
       };
 
-      const normalized = adapter.exposeNormalize(axiosLike, {
+      const normalized = adapter.exposeNormalizeError(axiosLike, {
         endpoint: '/token',
       });
       expect(normalized.statusCode).to.equal(401);
@@ -384,7 +210,7 @@ describe('BaseOAuthAdapter', () => {
 
     it('should normalize fetch-like response objects', () => {
       const fetchLike = { status: 404, statusText: 'Not Found' };
-      const normalized = adapter.exposeNormalize(fetchLike, {
+      const normalized = adapter.exposeNormalizeError(fetchLike, {
         endpoint: '/auth',
       });
       expect(normalized.statusCode).to.equal(404);
@@ -395,14 +221,14 @@ describe('BaseOAuthAdapter', () => {
 
     it('should normalize native Error instances', () => {
       const timeoutError = new Error('Request timeout after 30s');
-      const normalized = adapter.exposeNormalize(timeoutError, {});
+      const normalized = adapter.exposeNormalizeError(timeoutError, {});
       expect(normalized.statusCode).to.equal(504);
       expect(normalized.error).to.equal('temporarily_unavailable');
       expect(normalized.error_description).to.include('timeout');
     });
 
     it('should normalize primitive strings', () => {
-      const normalized = adapter.exposeNormalize('just failed', {
+      const normalized = adapter.exposeNormalizeError('just failed', {
         issuer: 'x',
       });
       expect(normalized.statusCode).to.equal(500);
@@ -412,59 +238,9 @@ describe('BaseOAuthAdapter', () => {
     });
   });
 
-  describe('token exchange and refresh flows (dummy subclasses)', () => {
+  describe('token exchange and refresh flows', () => {
     it('exchangeCode: maps provider payload into TokenResponse', async () => {
-      class DummySuccess extends BaseOAuthAdapter {
-        public async initialize(): Promise<void> {
-          return;
-        }
-        protected getAuthorizationEndpoint(): string {
-          return 'https://auth.example.com/authorize';
-        }
-        public async generateAuthUrl(i: string, r: string): Promise<string> {
-          return `${i}:${r}`;
-        }
-        public async exchangeCode(
-          code: string,
-          verifier: string,
-          redirectUrl: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void code;
-          void verifier;
-          void redirectUrl;
-          // Simulate provider response mapping
-          const provider = {
-            access_token: 'A',
-            refresh_token: 'R',
-            id_token: 'ID',
-            expires_in: 3600,
-            scope: 'openid profile',
-          } as const;
-          return {
-            accessToken: provider.access_token,
-            refreshToken: provider.refresh_token,
-            idToken: provider.id_token,
-            expiresIn: provider.expires_in,
-            scope: provider.scope,
-          };
-        }
-        public async refreshToken(
-          refreshToken: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void refreshToken;
-          return { accessToken: 'X' };
-        }
-        public getProviderQuirks(): import('./types.js').ProviderQuirks {
-          return {
-            supportsOIDCDiscovery: true,
-            requiresPKCE: true,
-            supportsRefreshTokens: true,
-            customParameters: [],
-          };
-        }
-      }
-
-      const adapter = new DummySuccess(mockConfig);
+      const adapter = new TokenMappingTestAdapter(mockConfig);
       const res = await adapter.exchangeCode('code', 'verifier', 'http://cb');
       expect(res).to.deep.equal({
         accessToken: 'A',
@@ -476,61 +252,7 @@ describe('BaseOAuthAdapter', () => {
     });
 
     it('exchangeCode: normalizes provider-shaped error', async () => {
-      class DummyError extends BaseOAuthAdapter {
-        public async initialize(): Promise<void> {
-          return;
-        }
-        protected getAuthorizationEndpoint(): string {
-          return 'https://auth.example.com/authorize';
-        }
-        public async generateAuthUrl(i: string, r: string): Promise<string> {
-          return `${i}:${r}`;
-        }
-        public async exchangeCode(
-          code: string,
-          verifier: string,
-          redirectUrl: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void code;
-          void verifier;
-          void redirectUrl;
-          try {
-            // Simulate provider throwing an HTTP-like error
-            throw {
-              response: {
-                status: 400,
-                data: { error: 'invalid_grant', error_description: 'bad code' },
-              },
-            };
-          } catch (e) {
-            // Re-throw normalized OAuthError
-            throw (
-              this as unknown as {
-                normalizeError: (
-                  e: unknown,
-                  c: { endpoint?: string; issuer?: string }
-                ) => OAuthError;
-              }
-            ).normalizeError(e, { endpoint: '/token' });
-          }
-        }
-        public async refreshToken(
-          refreshToken: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void refreshToken;
-          return { accessToken: 'X' };
-        }
-        public getProviderQuirks(): import('./types.js').ProviderQuirks {
-          return {
-            supportsOIDCDiscovery: true,
-            requiresPKCE: true,
-            supportsRefreshTokens: true,
-            customParameters: [],
-          };
-        }
-      }
-
-      const adapter = new DummyError(mockConfig);
+      const adapter = new ErrorThrowingTestAdapter(mockConfig);
       try {
         await adapter.exchangeCode('code', 'verifier', 'http://cb');
         expect.fail('Expected to throw');
@@ -545,104 +267,13 @@ describe('BaseOAuthAdapter', () => {
     });
 
     it('refreshToken: success returns new accessToken and optional refreshToken', async () => {
-      class DummyRefresh extends BaseOAuthAdapter {
-        public async initialize(): Promise<void> {
-          return;
-        }
-        protected getAuthorizationEndpoint(): string {
-          return 'https://auth.example.com/authorize';
-        }
-        public async generateAuthUrl(i: string, r: string): Promise<string> {
-          return `${i}:${r}`;
-        }
-        public async exchangeCode(
-          code: string,
-          verifier: string,
-          redirectUrl: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void code;
-          void verifier;
-          void redirectUrl;
-          return { accessToken: 'X' };
-        }
-        public async refreshToken(
-          refreshToken: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void refreshToken;
-          const provider = {
-            access_token: 'NEW',
-            refresh_token: 'NEW_R',
-          } as const;
-          return {
-            accessToken: provider.access_token,
-            refreshToken: provider.refresh_token,
-          };
-        }
-        public getProviderQuirks(): import('./types.js').ProviderQuirks {
-          return {
-            supportsOIDCDiscovery: true,
-            requiresPKCE: true,
-            supportsRefreshTokens: true,
-            customParameters: [],
-          };
-        }
-      }
-
-      const adapter = new DummyRefresh(mockConfig);
+      const adapter = new RefreshTokenTestAdapter(mockConfig, true);
       const res = await adapter.refreshToken('OLD_R');
       expect(res).to.deep.equal({ accessToken: 'NEW', refreshToken: 'NEW_R' });
     });
 
     it('refreshToken: unsupported throws normalized error', async () => {
-      class DummyNoRefresh extends BaseOAuthAdapter {
-        public async initialize(): Promise<void> {
-          return;
-        }
-        protected getAuthorizationEndpoint(): string {
-          return 'https://auth.example.com/authorize';
-        }
-        public async generateAuthUrl(i: string, r: string): Promise<string> {
-          return `${i}:${r}`;
-        }
-        public async exchangeCode(
-          code: string,
-          verifier: string,
-          redirectUrl: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void code;
-          void verifier;
-          void redirectUrl;
-          return { accessToken: 'X' };
-        }
-        public async refreshToken(
-          refreshToken: string
-        ): Promise<import('./types.js').TokenResponse> {
-          void refreshToken;
-          const unsupported: OAuthError = {
-            statusCode: 400,
-            error: 'unsupported_grant_type',
-            error_description: 'Refresh token not supported',
-          };
-          throw (
-            this as unknown as {
-              normalizeError: (
-                e: unknown,
-                c: { endpoint?: string; issuer?: string }
-              ) => OAuthError;
-            }
-          ).normalizeError(unsupported, { endpoint: '/token' });
-        }
-        public getProviderQuirks(): import('./types.js').ProviderQuirks {
-          return {
-            supportsOIDCDiscovery: true,
-            requiresPKCE: true,
-            supportsRefreshTokens: false,
-            customParameters: [],
-          };
-        }
-      }
-
-      const adapter = new DummyNoRefresh(mockConfig);
+      const adapter = new RefreshTokenTestAdapter(mockConfig, false);
       try {
         await adapter.refreshToken('anything');
         expect.fail('Expected to throw');
