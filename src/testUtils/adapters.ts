@@ -30,6 +30,8 @@ export interface ConfigurableTestAdapterOptions {
   refreshTokenError?: unknown;
   /** Whether refresh tokens are supported */
   supportsRefresh?: boolean;
+  /** Whether to track calls to computeProviderQuirks for memoization testing */
+  trackQuirksCalls?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export interface ConfigurableTestAdapterOptions {
 export class ConfigurableTestAdapter extends BaseOAuthAdapter {
   private options: ConfigurableTestAdapterOptions;
   private _manuallyInitialized = false;
+  private _quirksCallCount = 0;
 
   constructor(
     config: ProviderConfig,
@@ -110,11 +113,15 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
   }
 
   protected computeProviderQuirks(): ProviderQuirks {
+    if (this.options.trackQuirksCalls) {
+      this._quirksCallCount++;
+    }
+
     const defaultQuirks: ProviderQuirks = {
-      supportsOIDCDiscovery: true,
+      supportsOIDCDiscovery: Boolean(this.config.issuer),
       requiresPKCE: true,
       supportsRefreshTokens: this.options.supportsRefresh ?? true,
-      customParameters: [],
+      customParameters: Object.keys(this.config.customParameters || {}),
     };
 
     return { ...defaultQuirks, ...this.options.quirks };
@@ -135,6 +142,13 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
     context: { endpoint?: string; issuer?: string }
   ): OAuthError {
     return this.normalizeError(e, context);
+  }
+
+  /**
+   * Get the number of times computeProviderQuirks has been called (for memoization testing)
+   */
+  public getQuirksCallCount(): number {
+    return this._quirksCallCount;
   }
 }
 
@@ -320,5 +334,53 @@ export class RefreshTokenTestAdapter extends BaseOAuthAdapter {
       supportsRefreshTokens: this.refreshSupported,
       customParameters: [],
     };
+  }
+}
+
+/**
+ * Test adapter specifically for testing memoization behavior with call counting
+ */
+export class MemoizationTestAdapter extends BaseOAuthAdapter {
+  private _quirksCallCount = 0;
+
+  public async initialize(): Promise<void> {
+    return;
+  }
+
+  protected getAuthorizationEndpoint(): string {
+    return 'https://auth.example.com/authorize';
+  }
+
+  public async exchangeCode(
+    code: string,
+    verifier: string,
+    redirectUrl: string
+  ): Promise<TokenResponse> {
+    void code;
+    void verifier;
+    void redirectUrl;
+    return { accessToken: 't' };
+  }
+
+  public async refreshToken(refreshToken: string): Promise<TokenResponse> {
+    void refreshToken;
+    return { accessToken: 'r' };
+  }
+
+  protected computeProviderQuirks(): ProviderQuirks {
+    this._quirksCallCount++;
+    return {
+      supportsOIDCDiscovery: Boolean(this.config.issuer),
+      requiresPKCE: true,
+      supportsRefreshTokens: true,
+      customParameters: Object.keys(this.config.customParameters || {}),
+    };
+  }
+
+  /**
+   * Get the number of times computeProviderQuirks has been called
+   */
+  public getCallCount(): number {
+    return this._quirksCallCount;
   }
 }
