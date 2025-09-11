@@ -33,11 +33,6 @@ export abstract class BaseOAuthAdapter {
    * @param config - Provider-specific configuration including client credentials, scopes, and endpoints
    */
   public constructor(config: ProviderConfig) {
-    if (new.target === BaseOAuthAdapter) {
-      throw new TypeError(
-        'BaseOAuthAdapter is abstract and cannot be instantiated directly'
-      );
-    }
     this.config = config;
   }
 
