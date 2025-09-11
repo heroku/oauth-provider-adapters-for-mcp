@@ -115,7 +115,7 @@ export class ErrorNormalizer {
     const statusCode = this.readNumber(response, 'status');
     if (typeof statusCode !== 'number') return null;
 
-    const data = this.asObject(response['data' as unknown as string]);
+    const data = this.asObject(response['data']);
     let error = data ? this.readString(data, 'error') : undefined;
     const description =
       (data && this.readString(data, 'error_description')) ||
