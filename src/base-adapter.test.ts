@@ -56,15 +56,16 @@ describe('BaseOAuthAdapter', () => {
   });
 
   describe('abstract class behavior', () => {
-    it('should be abstract and not directly instantiable', () => {
+    it('should be abstract at compile-time but allow runtime instantiation', () => {
       // TypeScript compile-time check - this should fail compilation if uncommented:
       // const adapter = new BaseOAuthAdapter(mockConfig);
 
-      // Runtime verification that the class is meant to be abstract
+      // Runtime instantiation is allowed (runtime check was removed)
+      // but the instance cannot be used because abstract methods are not implemented
       expect(() => {
         // @ts-expect-error Testing abstract class instantiation
         new BaseOAuthAdapter(mockConfig);
-      }).to.throw();
+      }).to.not.throw();
     });
 
     it('should expose abstract API on subclasses', () => {
@@ -322,6 +323,7 @@ describe('BaseOAuthAdapter', () => {
       const anyGlobal: any = globalThis as unknown as { fetch?: unknown };
       // Assign without compile-time error; runtime will still override
       anyGlobal.fetch = ((..._args: unknown[]) => {
+        void _args;
         fetchCalls += 1;
         return Promise.reject(new Error('should not be called'));
       }) as typeof globalThis.fetch;
