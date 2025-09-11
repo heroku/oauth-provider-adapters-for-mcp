@@ -56,9 +56,6 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
   }
 
   public async initialize(): Promise<void> {
-    if (this.options.initialized) {
-      await super.initialize();
-    }
     this._manuallyInitialized = true;
   }
 

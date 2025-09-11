@@ -18,11 +18,6 @@ export abstract class BaseOAuthAdapter {
   protected readonly config: ProviderConfig;
 
   /**
-   * Tracks whether the adapter has been initialized
-   */
-  private _initialized = false;
-
-  /**
    * Memoized cache of computed provider quirks
    */
   private providerQuirksCache?: ProviderQuirks;
@@ -38,12 +33,10 @@ export abstract class BaseOAuthAdapter {
 
   /**
    * Initialize provider-specific resources.
-   * Subclasses should perform any discovery, validation or setup work here.
-   * Must call super.initialize() to mark the adapter as initialized.
+   * Subclasses must implement this to perform any discovery, validation or setup work.
+   * This method should be called before using any other adapter methods.
    */
-  public async initialize(): Promise<void> {
-    this._initialized = true;
-  }
+  public abstract initialize(): Promise<void>;
 
   /**
    * Generate an authorization URL for starting the OAuth flow.
@@ -51,19 +44,11 @@ export abstract class BaseOAuthAdapter {
    * @param interactionId - Correlation identifier for the auth interaction
    * @param redirectUrl - The redirect/callback URL to return to after consent
    * @returns A fully formed authorization URL
-   * @throws {OAuthError} If the adapter has not been initialized
    */
   public async generateAuthUrl(
     interactionId: string,
     redirectUrl: string
   ): Promise<string> {
-    if (!this._initialized) {
-      throw this.normalizeError(
-        new Error('Adapter must be initialized before generating auth URL'),
-        { endpoint: 'generateAuthUrl' }
-      );
-    }
-
     const authEndpoint = this.getAuthorizationEndpoint();
     const baseParams = this.buildBaseAuthParams(interactionId, redirectUrl);
     const customParams = this.config.customParameters || {};
