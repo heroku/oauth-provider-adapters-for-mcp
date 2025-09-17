@@ -1,15 +1,13 @@
 import type {
   OAuthError,
   ProviderConfig,
-  ProviderQuirks,
-  TokenResponse,
 } from './types.js';
 import { ErrorNormalizer } from './utils/error-normalizer.js';
 
 /**
  * Abstract base class that all OAuth provider adapters must implement.
  * Establishes the core contract for initialization, authorization URL generation,
- * token exchange, refresh, and provider quirks metadata.
+ * token exchange, and refresh.
  */
 export abstract class BaseOAuthAdapter {
   /**
@@ -17,10 +15,6 @@ export abstract class BaseOAuthAdapter {
    */
   protected readonly config: ProviderConfig;
 
-  /**
-   * Memoized cache of computed provider quirks
-   */
-  private providerQuirksCache?: ProviderQuirks;
 
   /**
    * Creates a new BaseOAuthAdapter instance
@@ -65,11 +59,6 @@ export abstract class BaseOAuthAdapter {
    */
   protected abstract getAuthorizationEndpoint(): string;
 
-  /**
-   * Compute provider-specific capability flags and quirks.
-   * Implementations MUST NOT perform network I/O.
-   */
-  protected abstract computeProviderQuirks(): ProviderQuirks;
 
   /**
    * Build base authorization parameters for the OAuth flow.
@@ -112,53 +101,7 @@ export abstract class BaseOAuthAdapter {
     return url.toString();
   }
 
-  /**
-   * Exchange an authorization code for tokens.
-   *
-   * Subclasses are responsible for:
-   * - Mapping provider-specific token payloads into a normalized {@link TokenResponse}
-   *   (e.g., access_token -> accessToken, refresh_token -> refreshToken, id_token -> idToken,
-   *   expires_in -> expiresIn, scope -> scope)
-   * - Catching unknown/provider errors and re-throwing a normalized {@link OAuthError}
-   *   via the protected {@link normalizeError} helper with an appropriate context
-   *   (e.g., endpoint: '/token')
-   * @param code - The authorization code received from the provider
-   * @param verifier - PKCE code verifier used during authorization
-   * @param redirectUrl - The same redirect URL used to obtain the code
-   * @returns A normalized token response
-   */
-  public abstract exchangeCode(
-    code: string,
-    verifier: string,
-    redirectUrl: string
-  ): Promise<TokenResponse>;
 
-  /**
-   * Refresh tokens using a refresh token.
-   *
-   * Subclasses are responsible for:
-   * - Performing the provider refresh request (if supported) and mapping the result
-   *   into a normalized {@link TokenResponse}
-   * - If refresh is not supported by the provider, throwing a normalized {@link OAuthError}
-   *   (e.g., statusCode 400 with error 'unsupported_grant_type') using {@link normalizeError}
-   * - Catching unknown/provider errors and re-throwing a normalized {@link OAuthError}
-   *   via {@link normalizeError} with context (e.g., endpoint: '/token')
-   * @param refreshToken - The refresh token to exchange
-   * @returns A normalized token response
-   */
-  public abstract refreshToken(refreshToken: string): Promise<TokenResponse>;
-
-  /**
-   * Return provider-specific capability flags and quirks. Lazily memoizes
-   * the result of {@link computeProviderQuirks}. This method performs no
-   * network I/O.
-   */
-  public getProviderQuirks(): ProviderQuirks {
-    if (!this.providerQuirksCache) {
-      this.providerQuirksCache = this.computeProviderQuirks();
-    }
-    return this.providerQuirksCache;
-  }
 
   /**
    * Normalize heterogeneous error shapes from HTTP libraries, provider SDKs,

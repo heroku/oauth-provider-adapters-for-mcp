@@ -30,6 +30,8 @@ export type TokenResponse = {
   idToken?: string;
   /** Token expiration time in seconds */
   expiresIn?: number;
+  /** Token type (usually 'Bearer') */
+  tokenType?: string;
   /** Granted scopes (may differ from requested) */
   scope?: string;
   /** Additional user data from provider */

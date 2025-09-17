@@ -20,7 +20,7 @@
     "build:cjs": "rm -rf dist/cjs && tsc --module commonjs --outDir dist/cjs --target esnext && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "rm -rf dist/esm && tsc --module esnext --outDir dist/esm --target esnext",
     "build": "npm run build:cjs && npm run build:esm",
-    "test": "c8 --reporter=text-summary --reporter=html mocha --forbid-only \"dist/cjs/**/*.test.js\"",
+    "test": "c8 --reporter=text-summary --reporter=html mocha --forbid-only \"test/**/*.{js,ts}\"",
     "prepare": "husky",
     "lint": "cd src && eslint ./",
     "format": "prettier . --write --config ./.prettier.mjs",
@@ -46,7 +46,7 @@
   ],
   "dependencies": {
     "openid-client": "^6.7.1",
-    "tslib": "^2.6.3",
+    "tslib": "^2.8.1",
     "zod": "^4.1.5"
   },
   "devDependencies": {
@@ -55,6 +55,7 @@
     "@types/http-errors": "^2.0.5",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.3.1",
+    "@types/sinon": "^17.0.4",
     "@typescript-eslint/eslint-plugin": "^8.43.0",
     "@typescript-eslint/parser": "^8.43.0",
     "c8": "^10.1.3",
@@ -66,6 +67,7 @@
     "lint-staged": "^16.1.6",
     "mocha": "^11.7.2",
     "prettier": "^3.6.2",
+    "sinon": "^21.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   },

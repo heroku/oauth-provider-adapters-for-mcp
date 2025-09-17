@@ -23,19 +23,19 @@ export default defineConfig([
     ...js.configs.recommended,
   },
 
-  // TypeScript source files
-  {
-    files: ['**/*.ts', '**/*.mts', '**/*.cts'],
-    languageOptions: {
-      parser: tsParser,
-      parserOptions: {
-        // Use the project tsconfig for type-aware linting
-        project: ['./tsconfig.json'],
-        tsconfigRootDir: path.dirname(fileURLToPath(import.meta.url)),
-        ecmaVersion: 2022,
-        sourceType: 'module',
-      },
-    },
+          // TypeScript source files
+          {
+            files: ['src/**/*.ts', 'src/**/*.mts', 'src/**/*.cts'],
+            languageOptions: {
+              parser: tsParser,
+              parserOptions: {
+                // Use the project tsconfig for type-aware linting
+                project: ['./tsconfig.json'],
+                tsconfigRootDir: path.dirname(fileURLToPath(import.meta.url)),
+                ecmaVersion: 2022,
+                sourceType: 'module',
+              },
+            },
     plugins: {
       '@typescript-eslint': tsPlugin,
     },
@@ -45,18 +45,33 @@ export default defineConfig([
     },
   },
 
-  // Test files (Mocha)
-  {
-    files: ['test/**/*.ts', '**/*.spec.ts', '**/*.test.ts'],
-    languageOptions: {
-      globals: {
-        describe: 'readonly',
-        it: 'readonly',
-        before: 'readonly',
-        beforeEach: 'readonly',
-        after: 'readonly',
-        afterEach: 'readonly',
-      },
-    },
-  },
+          // Test files (Mocha)
+          {
+            files: ['test/**/*.ts', 'test/**/*.js', '**/*.spec.ts', '**/*.test.ts'],
+            languageOptions: {
+              parser: tsParser,
+              parserOptions: {
+                project: ['./tsconfig.test.json'],
+                tsconfigRootDir: path.dirname(fileURLToPath(import.meta.url)),
+                ecmaVersion: 2022,
+                sourceType: 'module',
+              },
+              globals: {
+                describe: 'readonly',
+                it: 'readonly',
+                before: 'readonly',
+                beforeEach: 'readonly',
+                after: 'readonly',
+                afterEach: 'readonly',
+                console: 'readonly',
+                global: 'readonly',
+              },
+            },
+            plugins: {
+              '@typescript-eslint': tsPlugin,
+            },
+            rules: {
+              '@typescript-eslint/no-unused-vars': 'warn',
+            },
+          },
 ]);
