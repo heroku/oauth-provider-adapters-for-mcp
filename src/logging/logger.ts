@@ -1,4 +1,4 @@
-import { redact } from './redaction';
+import { redact } from './redaction.js';
 
 // Ordered from least to most verbose.
 export enum LogLevel {
@@ -43,17 +43,23 @@ export class DefaultLogger implements Logger {
 
   private readonly context: LogMeta;
   private readonly writeMessage;
+  private readonly transport: any;
 
   public readonly destination: LogDestination;
   public redactPaths: string[];
   public level: LogLevel;
 
-  constructor(context: LogMeta, options?: LoggerOptions) {
+  constructor(
+    context: LogMeta,
+    options?: LoggerOptions,
+    transport: any = console
+  ) {
     this.context = context;
-    this.level = options?.level || DefaultLogger.defaultLevel;
-    this.destination = options?.destination || DefaultLogger.defaultDestination;
-    this.redactPaths = options?.redactPaths || DefaultLogger.defaultRedactPaths;
-    this.writeMessage = console[this.destination];
+    this.level = options?.level ?? DefaultLogger.defaultLevel;
+    this.destination = options?.destination ?? DefaultLogger.defaultDestination;
+    this.redactPaths = options?.redactPaths ?? DefaultLogger.defaultRedactPaths;
+    this.transport = transport;
+    this.writeMessage = transport[this.destination].bind(transport);
   }
 
   child(context: LogMeta): Logger {
@@ -64,7 +70,7 @@ export class DefaultLogger implements Logger {
       destination: this.destination,
     };
 
-    return new DefaultLogger(childContext, childOptions);
+    return new DefaultLogger(childContext, childOptions, this.transport);
   }
 
   fatal(msg: string, meta?: LogMeta): void {
@@ -92,7 +98,7 @@ export class DefaultLogger implements Logger {
   }
 
   private log(level: LogLevel, msg: string, meta?: LogMeta): void {
-    if (level === LogLevel.Silent) {
+    if (this.level === LogLevel.Silent) {
       return;
     }
 
