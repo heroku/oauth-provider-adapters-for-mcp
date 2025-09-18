@@ -8,6 +8,7 @@ import {
   RefreshTokenTestAdapter,
   MemoizationTestAdapter,
 } from './testUtils/adapters.js';
+import { DefaultLogger } from './logging/logger.js';
 
 describe('BaseOAuthAdapter', () => {
   const mockConfig: ProviderConfig = {
@@ -52,6 +53,20 @@ describe('BaseOAuthAdapter', () => {
       expect(
         () => new ConfigurableTestAdapter(minimalConfig, minimalOptions)
       ).to.not.throw();
+    });
+  });
+
+  describe('logger', () => {
+    it('lazily instantiates and returns a default logger', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(adapter.logger).to.be.instanceOf(DefaultLogger);
+    });
+
+    it('memoizes and returns the same instance of logger on each call', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(adapter.logger).to.equal(adapter.logger);
     });
   });
 

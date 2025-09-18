@@ -5,6 +5,7 @@ import type {
   TokenResponse,
 } from './types.js';
 import { ErrorNormalizer } from './utils/error-normalizer.js';
+import { DefaultLogger, Logger } from './logging/logger.js';
 
 /**
  * Abstract base class that all OAuth provider adapters must implement.
@@ -23,12 +24,24 @@ export abstract class BaseOAuthAdapter {
   private providerQuirksCache?: ProviderQuirks;
 
   /**
+   * Stores our lazily instantiated implementation of Logger.
+   */
+  private loggerImpl?: Logger;
+
+  /**
    * Creates a new BaseOAuthAdapter instance
    *
    * @param config - Provider-specific configuration including client credentials, scopes, and endpoints
    */
   public constructor(config: ProviderConfig) {
     this.config = config;
+  }
+
+  public get logger(): Logger {
+    if (this.loggerImpl === null || this.loggerImpl === undefined) {
+      this.loggerImpl = new DefaultLogger({});
+    }
+    return this.loggerImpl;
   }
 
   /**
