@@ -5,7 +5,8 @@ import type {
   TokenResponse,
 } from './types.js';
 import { ErrorNormalizer } from './utils/error-normalizer.js';
-import { DefaultLogger, Logger } from './logging/logger.js';
+import { Logger } from './logging/types.js';
+import { DefaultLogger } from './logging/logger.js';
 
 /**
  * Abstract base class that all OAuth provider adapters must implement.

@@ -1,23 +1,7 @@
 import { expect } from 'chai';
-import { DefaultLogger, LogLevel, LogDestination } from './logger.js';
-
-class MockTransport {
-  public logs: any[];
-  public errors: any[];
-
-  constructor() {
-    this.logs = [];
-    this.errors = [];
-  }
-
-  log(message: any) {
-    this.logs.push(message);
-  }
-
-  error(message: any) {
-    this.errors.push(message);
-  }
-}
+import { LogLevel, LogDestination } from './types.js';
+import { DefaultLogger } from './logger.js';
+import { MockTransport } from '../testUtils/logTransports.js';
 
 describe('LogLevel', () => {
   it('defines logLevels in order of least verbose to most verbose', () => {
