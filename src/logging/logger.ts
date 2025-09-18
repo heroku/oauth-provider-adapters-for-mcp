@@ -123,7 +123,7 @@ export class DefaultLogger implements Logger {
     this.writeMessage = transport[this.destination].bind(transport);
   }
 
-  child(context: LogMeta): Logger {
+  public child(context: LogMeta): Logger {
     const childContext = { ...this.context, ...context };
     const childOptions = {
       level: this.level,
@@ -134,27 +134,27 @@ export class DefaultLogger implements Logger {
     return new DefaultLogger(childContext, childOptions, this.transport);
   }
 
-  fatal(msg: string, meta?: LogMeta): void {
+  public fatal(msg: string, meta?: LogMeta): void {
     this.log(LogLevel.Fatal, msg, meta);
   }
 
-  error(msg: string, meta?: LogMeta): void {
+  public error(msg: string, meta?: LogMeta): void {
     this.log(LogLevel.Error, msg, meta);
   }
 
-  warn(msg: string, meta?: LogMeta): void {
+  public warn(msg: string, meta?: LogMeta): void {
     this.log(LogLevel.Warn, msg, meta);
   }
 
-  info(msg: string, meta?: LogMeta): void {
+  public info(msg: string, meta?: LogMeta): void {
     this.log(LogLevel.Info, msg, meta);
   }
 
-  debug(msg: string, meta?: LogMeta): void {
+  public debug(msg: string, meta?: LogMeta): void {
     this.log(LogLevel.Debug, msg, meta);
   }
 
-  trace(msg: string, meta?: LogMeta): void {
+  public trace(msg: string, meta?: LogMeta): void {
     this.log(LogLevel.Trace, msg, meta);
   }
 
