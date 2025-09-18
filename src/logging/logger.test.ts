@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { DefaultLogger, Logger } from './logger';
+import { DefaultLogger, Logger } from './logger.js';
 
 describe('DefaultLogger', () => {
   it('implements Logger', () => {});

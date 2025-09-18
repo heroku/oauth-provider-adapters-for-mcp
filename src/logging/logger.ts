@@ -1,3 +1,5 @@
+import { redact } from './redaction';
+
 // Ordered from least to most verbose.
 export enum LogLevel {
   Silent,
@@ -98,8 +100,8 @@ export class DefaultLogger implements Logger {
       const message = {
         message: msg,
         level: LogLevel[level],
-        ...this.context,
-        ...meta,
+        ...redact(this.context, this.redactPaths),
+        ...redact(meta, this.redactPaths),
       };
 
       this.writeMessage(message);
