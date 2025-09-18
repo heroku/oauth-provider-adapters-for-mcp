@@ -39,7 +39,10 @@ export abstract class BaseOAuthAdapter {
 
   public get logger(): Logger {
     if (this.loggerImpl === null || this.loggerImpl === undefined) {
-      this.loggerImpl = new DefaultLogger({});
+      this.loggerImpl = new DefaultLogger(
+        { clientId: this.config.clientId },
+        { redactPaths: ['clientSecret'] }
+      );
     }
     return this.loggerImpl;
   }
