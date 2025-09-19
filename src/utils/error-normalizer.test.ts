@@ -5,7 +5,6 @@
  */
 
 import { expect } from 'chai';
-import assert from 'assert';
 import { ErrorNormalizer } from './error-normalizer.js';
 import { errorData, contextData } from '../fixtures/test-data.js';
 
@@ -174,8 +173,8 @@ describe('ErrorNormalizer', () => {
         'https://auth.example.com'
       );
 
-      assert.equal(result.statusCode, 500);
-      assert.equal(result.error, 'server_error');
+      expect(result.statusCode).to.equal(500);
+      expect(result.error).to.equal('server_error');
     });
 
     it('should normalize HTTP errors from fixtures', function () {
@@ -187,11 +186,11 @@ describe('ErrorNormalizer', () => {
         'https://auth.example.com'
       );
 
-      assert.equal(result.statusCode, 400);
-      assert.equal(result.error, 'invalid_request');
-      assert.equal(result.error_description, 'Bad Request');
-      assert.equal(result.endpoint, context.endpoint);
-      assert.equal(result.issuer, context.issuer);
+      expect(result.statusCode).to.equal(400);
+      expect(result.error).to.equal('invalid_request');
+      expect(result.error_description).to.equal('Bad Request');
+      expect(result.endpoint).to.equal(context.endpoint);
+      expect(result.issuer).to.equal(context.issuer);
     });
 
     it('should normalize network errors from fixtures', function () {
@@ -203,10 +202,10 @@ describe('ErrorNormalizer', () => {
         'https://auth.example.com'
       );
 
-      assert.equal(result.statusCode, 504);
-      assert.equal(result.error, 'temporarily_unavailable');
-      assert(result.error_description?.includes('Network timeout'));
-      assert.equal(result.endpoint, context.endpoint);
+      expect(result.statusCode).to.equal(504);
+      expect(result.error).to.equal('temporarily_unavailable');
+      expect(result.error_description).to.include('Network timeout');
+      expect(result.endpoint).to.equal(context.endpoint);
     });
 
     it('should normalize unknown errors from fixtures', function () {
@@ -218,10 +217,10 @@ describe('ErrorNormalizer', () => {
         'https://auth.example.com'
       );
 
-      assert.equal(result.statusCode, 500);
-      assert.equal(result.error, 'server_error');
-      assert.equal(result.error_description, 'Internal Server Error');
-      assert.equal(result.endpoint, context.endpoint);
+      expect(result.statusCode).to.equal(500);
+      expect(result.error).to.equal('server_error');
+      expect(result.error_description).to.equal('Internal Server Error');
+      expect(result.endpoint).to.equal(context.endpoint);
     });
   });
 });

@@ -4,7 +4,7 @@
  * Co-located with the adapter for better maintainability
  */
 
-import assert from 'assert';
+import { expect } from 'chai';
 import sinon from 'sinon';
 import { OIDCProviderAdapter } from './oidc-adapter.js';
 import { MockPKCEStorageHook } from './types.js';
@@ -37,7 +37,7 @@ describe('OIDCProviderAdapter', function () {
       const adapter = new OIDCProviderAdapter(config);
       await adapter.initialize();
 
-      assert(adapter.getProviderMetadata(), 'Should have provider metadata');
+      expect(adapter.getProviderMetadata()).to.exist;
     });
 
     it('should throw error for missing required fields', async function () {
@@ -49,10 +49,12 @@ describe('OIDCProviderAdapter', function () {
 
       const adapter = new OIDCProviderAdapter(config);
 
-      await assert.rejects(
-        adapter.initialize(),
-        (err: any) => err.error === 'invalid_request'
-      );
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+      }
     });
 
     it('should throw error for missing authorization endpoint', async function () {
@@ -63,10 +65,12 @@ describe('OIDCProviderAdapter', function () {
 
       const adapter = new OIDCProviderAdapter(config);
 
-      await assert.rejects(
-        adapter.initialize(),
-        (err: any) => err.error === 'invalid_request'
-      );
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+      }
     });
   });
 
@@ -90,10 +94,31 @@ describe('OIDCProviderAdapter', function () {
         authUrlData.validParams.redirectUrl
       );
 
-      // Check for expected URL parts
-      authUrlData.expectedUrlParts.forEach((part) => {
-        assert(authUrl.includes(part), `Should contain ${part}`);
-      });
+      // Parse the URL to properly validate its structure
+      const parsedUrl = new URL(authUrl);
+
+      // Validate base URL
+      expect(parsedUrl.origin).to.equal('https://auth.example.com');
+      expect(parsedUrl.pathname).to.equal('/oauth/authorize');
+
+      // Validate query parameters
+      expect(parsedUrl.searchParams.get('response_type')).to.equal('code');
+      expect(parsedUrl.searchParams.get('client_id')).to.equal(
+        'test-client-id'
+      );
+      expect(parsedUrl.searchParams.get('redirect_uri')).to.equal(
+        authUrlData.validParams.redirectUrl
+      );
+      expect(parsedUrl.searchParams.get('scope')).to.equal(
+        'openid profile email'
+      );
+      expect(parsedUrl.searchParams.get('state')).to.equal(
+        authUrlData.validParams.interactionId
+      );
+      expect(parsedUrl.searchParams.get('code_challenge')).to.exist;
+      expect(parsedUrl.searchParams.get('code_challenge_method')).to.equal(
+        'S256'
+      );
     });
 
     it('should store PKCE verifier', async function () {
@@ -106,8 +131,8 @@ describe('OIDCProviderAdapter', function () {
         authUrlData.validParams.interactionId,
         authUrlData.validParams.interactionId
       );
-      assert(verifier, 'Should store PKCE verifier');
-      assert(typeof verifier === 'string', 'Verifier should be string');
+      expect(verifier).to.exist;
+      expect(verifier).to.be.a('string');
     });
 
     it('should throw error if not initialized', async function () {
@@ -117,13 +142,15 @@ describe('OIDCProviderAdapter', function () {
       };
       const uninitializedAdapter = new OIDCProviderAdapter(config);
 
-      await assert.rejects(
-        uninitializedAdapter.generateAuthUrl(
+      try {
+        await uninitializedAdapter.generateAuthUrl(
           authUrlData.validParams.interactionId,
           authUrlData.validParams.redirectUrl
-        ),
-        (err: any) => err.error === 'invalid_request'
-      );
+        );
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+      }
     });
   });
 
@@ -140,21 +167,10 @@ describe('OIDCProviderAdapter', function () {
 
       const quirks = adapter.getProviderQuirks();
 
-      assert.equal(
-        quirks.supportsOIDCDiscovery,
-        false,
-        'Should not support OIDC discovery with static metadata'
-      );
-      assert.equal(quirks.requiresPKCE, true, 'Should require PKCE');
-      assert.equal(
-        quirks.supportsRefreshTokens,
-        false,
-        'Should not support refresh tokens by default'
-      );
-      assert(
-        Array.isArray(quirks.customParameters),
-        'Should have custom parameters array'
-      );
+      expect(quirks.supportsOIDCDiscovery).to.equal(false);
+      expect(quirks.requiresPKCE).to.equal(true);
+      expect(quirks.supportsRefreshTokens).to.equal(false);
+      expect(quirks.customParameters).to.be.an('array');
     });
 
     it('should compute quirks with issuer-based discovery', async function () {
@@ -176,16 +192,9 @@ describe('OIDCProviderAdapter', function () {
 
       const quirks = adapter.getProviderQuirks();
 
-      assert.equal(
-        quirks.supportsOIDCDiscovery,
-        true,
-        'Should support OIDC discovery with issuer'
-      );
-      assert.equal(quirks.requiresPKCE, true, 'Should require PKCE');
-      assert(
-        Array.isArray(quirks.customParameters),
-        'Should have custom parameters array'
-      );
+      expect(quirks.supportsOIDCDiscovery).to.equal(true);
+      expect(quirks.requiresPKCE).to.equal(true);
+      expect(quirks.customParameters).to.be.an('array');
     });
 
     it('should include custom parameters in quirks', async function () {
@@ -204,14 +213,8 @@ describe('OIDCProviderAdapter', function () {
 
       const quirks = adapter.getProviderQuirks();
 
-      assert(
-        quirks.customParameters.includes('custom_param'),
-        'Should include custom parameter'
-      );
-      assert(
-        quirks.customParameters.includes('another_param'),
-        'Should include another custom parameter'
-      );
+      expect(quirks.customParameters).to.include('custom_param');
+      expect(quirks.customParameters).to.include('another_param');
     });
   });
 
@@ -227,10 +230,12 @@ describe('OIDCProviderAdapter', function () {
       const adapter = new OIDCProviderAdapter(config);
 
       // Discovery will fail due to network, but we can test the attempt
-      await assert.rejects(
-        adapter.initialize(),
-        (err: any) => err.error === 'server_error'
-      );
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('server_error');
+      }
     });
 
     it('should handle discovery errors gracefully', async function () {
@@ -243,10 +248,12 @@ describe('OIDCProviderAdapter', function () {
 
       const adapter = new OIDCProviderAdapter(config);
 
-      await assert.rejects(
-        adapter.initialize(),
-        (err: any) => err.error === 'server_error'
-      );
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('server_error');
+      }
     });
   });
 
@@ -266,10 +273,7 @@ describe('OIDCProviderAdapter', function () {
         'test-id',
         'not-a-valid-url'
       );
-      assert(
-        authUrl.includes('not-a-valid-url'),
-        'Should include the redirect URL as provided'
-      );
+      expect(authUrl).to.include('not-a-valid-url');
     });
 
     it('should handle storage hook errors', async function () {
@@ -290,10 +294,15 @@ describe('OIDCProviderAdapter', function () {
       const adapter = new OIDCProviderAdapter(config);
       await adapter.initialize();
 
-      await assert.rejects(
-        adapter.generateAuthUrl('test-id', 'https://example.com/callback'),
-        (err: any) => err.message === 'Storage error'
-      );
+      try {
+        await adapter.generateAuthUrl(
+          'test-id',
+          'https://example.com/callback'
+        );
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.message).to.equal('Storage error');
+      }
     });
   });
 });
