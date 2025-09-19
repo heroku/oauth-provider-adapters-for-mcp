@@ -54,9 +54,9 @@ export default defineConfig([
   // Test files (Mocha) - Updated for colocation
   {
     files: [
-      'src/**/*.test.ts', 
+      'src/**/*.test.ts',
       'src/**/*.spec.ts',
-      'src/testUtils/**/*.test.ts'
+      'src/testUtils/**/*.test.ts',
     ],
     languageOptions: {
       parser: tsParser,
