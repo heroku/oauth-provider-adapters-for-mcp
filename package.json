@@ -22,7 +22,7 @@
     "build": "npm run build:cjs && npm run build:esm",
     "test": "c8 mocha --forbid-only \"src/**/*.test.{js,ts}\"",
     "prepare": "husky",
-    "lint": "cd src && eslint ./",
+    "lint": "eslint \"src/**/*.{js,ts}\"",
     "format": "prettier . --write --config ./.prettier.mjs",
     "pretest": "npm run build:cjs && npm run build:esm",
     "type-check": "tsc --noEmit -p tsconfig.json",

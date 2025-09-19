@@ -3,9 +3,10 @@
   "include": ["src/**/*.ts"],
   "exclude": [
     "**/*.test.ts",
+    "**/*.spec.ts",
     "dist/**/*",
     "src/**/*types.ts",
-    "**/testUtils/**"
+    "src/testUtils/**/*.test.ts"
   ],
   "reporter": ["text", "html", "lcov"],
   "reports-dir": "coverage",
