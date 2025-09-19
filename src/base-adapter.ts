@@ -1,6 +1,8 @@
 import type {
   OAuthError,
   ProviderConfig,
+  TokenResponse,
+  ProviderQuirks,
 } from './types.js';
 import { ErrorNormalizer } from './utils/error-normalizer.js';
 
@@ -14,6 +16,16 @@ export abstract class BaseOAuthAdapter {
    * Provider configuration stored as protected readonly for subclass access
    */
   protected readonly config: ProviderConfig;
+
+  /**
+   * Initialization state tracking
+   */
+  protected initialized = false;
+
+  /**
+   * Provider quirks cache for lazy memoization
+   */
+  private providerQuirksCache?: ProviderQuirks;
 
 
   /**
@@ -29,6 +41,7 @@ export abstract class BaseOAuthAdapter {
    * Initialize provider-specific resources.
    * Subclasses must implement this to perform any discovery, validation or setup work.
    * This method should be called before using any other adapter methods.
+   * Subclasses should set this.initialized = true upon successful initialization.
    */
   public abstract initialize(): Promise<void>;
 
@@ -38,11 +51,19 @@ export abstract class BaseOAuthAdapter {
    * @param interactionId - Correlation identifier for the auth interaction
    * @param redirectUrl - The redirect/callback URL to return to after consent
    * @returns A fully formed authorization URL
+   * @throws OAuthError if adapter is not initialized
    */
   public async generateAuthUrl(
     interactionId: string,
     redirectUrl: string
   ): Promise<string> {
+    if (!this.initialized) {
+      throw this.normalizeError(
+        new Error('Adapter not initialized. Call initialize() first.'),
+        { endpoint: '/authorize' }
+      );
+    }
+
     const authEndpoint = this.getAuthorizationEndpoint();
     const baseParams = this.buildBaseAuthParams(interactionId, redirectUrl);
     const customParams = this.config.customParameters || {};
@@ -102,6 +123,53 @@ export abstract class BaseOAuthAdapter {
   }
 
 
+
+  /**
+   * Exchange authorization code for access token.
+   * Subclasses must implement this to handle the OAuth token exchange flow.
+   *
+   * @param code - Authorization code from the callback
+   * @param verifier - PKCE code verifier (if using PKCE)
+   * @param redirectUrl - The redirect URL used in the authorization request
+   * @returns Normalized token response
+   */
+  public abstract exchangeCode(
+    code: string,
+    verifier: string,
+    redirectUrl: string
+  ): Promise<TokenResponse>;
+
+  /**
+   * Refresh an access token using a refresh token.
+   * Subclasses must implement this to handle token refresh.
+   *
+   * @param refreshToken - The refresh token to use
+   * @returns New normalized token response
+   */
+  public abstract refreshToken(refreshToken: string): Promise<TokenResponse>;
+
+  /**
+   * Get provider-specific capabilities and requirements.
+   * Uses lazy memoization to compute quirks only once.
+   * Performs no network I/O.
+   *
+   * @returns Provider quirks object
+   */
+  public getProviderQuirks(): ProviderQuirks {
+    if (!this.providerQuirksCache) {
+      this.providerQuirksCache = this.computeProviderQuirks();
+    }
+    return this.providerQuirksCache;
+  }
+
+  /**
+   * Compute provider-specific capabilities and requirements.
+   * Subclasses must implement this to return provider quirks.
+   * This method should perform no network I/O.
+   *
+   * @returns Provider quirks object
+   */
+  protected abstract computeProviderQuirks(): ProviderQuirks;
 
   /**
    * Normalize heterogeneous error shapes from HTTP libraries, provider SDKs,

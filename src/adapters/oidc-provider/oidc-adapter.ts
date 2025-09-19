@@ -36,8 +36,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   /** PKCE state expiration time in seconds */
   private readonly pkceStateExpirationSeconds: number;
 
-  /** Whether the adapter has been initialized */
-  private initialized = false;
+  // Note: initialized property is inherited from BaseOAuthAdapter
 
   /**
    * Creates a new OIDC Provider Adapter instance
@@ -394,5 +393,44 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       ...context,
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+
+  /**
+   * Exchange authorization code for access token
+   * @param code - Authorization code from callback
+   * @param verifier - PKCE code verifier
+   * @param redirectUrl - Redirect URL used in authorization
+   * @returns Token response
+   */
+  public async exchangeCode(
+    code: string,
+    verifier: string,
+    redirectUrl: string
+  ): Promise<import('../../types.js').TokenResponse> {
+    // TODO: Implement OIDC token exchange
+    throw new Error('exchangeCode not yet implemented');
+  }
+
+  /**
+   * Refresh access token using refresh token
+   * @param refreshToken - Refresh token
+   * @returns New token response
+   */
+  public async refreshToken(refreshToken: string): Promise<import('../../types.js').TokenResponse> {
+    // TODO: Implement OIDC token refresh
+    throw new Error('refreshToken not yet implemented');
+  }
+
+  /**
+   * Compute provider-specific capabilities and requirements
+   * @returns Provider quirks
+   */
+  protected computeProviderQuirks(): import('../../types.js').ProviderQuirks {
+    return {
+      supportsOIDCDiscovery: !!this.oidcConfig.issuer,
+      requiresPKCE: true,
+      supportsRefreshTokens: this.providerMetadata?.grant_types_supported?.includes('refresh_token') ?? false,
+      customParameters: Object.keys(this.oidcConfig.customParameters || {})
+    };
   }
 }

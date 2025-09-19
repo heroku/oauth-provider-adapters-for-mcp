@@ -20,7 +20,7 @@
     "build:cjs": "rm -rf dist/cjs && tsc --module commonjs --outDir dist/cjs --target esnext && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "rm -rf dist/esm && tsc --module esnext --outDir dist/esm --target esnext",
     "build": "npm run build:cjs && npm run build:esm",
-    "test": "c8 --reporter=text-summary --reporter=html mocha --forbid-only \"test/**/*.{js,ts}\"",
+    "test": "c8 mocha --forbid-only \"src/**/*.test.{js,ts}\"",
     "prepare": "husky",
     "lint": "cd src && eslint ./",
     "format": "prettier . --write --config ./.prettier.mjs",

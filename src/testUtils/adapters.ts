@@ -60,6 +60,7 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
 
   public async initialize(): Promise<void> {
     this._manuallyInitialized = true;
+    this.initialized = true;
   }
 
   protected getAuthorizationEndpoint(): string {
@@ -150,6 +151,8 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
   public getQuirksCallCount(): number {
     return this._quirksCallCount;
   }
+
+  // Use the base class memoization by not overriding getProviderQuirks
 }
 
 /**
@@ -207,6 +210,10 @@ export class TokenMappingTestAdapter extends BaseOAuthAdapter {
       supportsRefreshTokens: true,
       customParameters: [],
     };
+  }
+
+  public getProviderQuirks(): ProviderQuirks {
+    return this.computeProviderQuirks();
   }
 }
 
@@ -267,6 +274,15 @@ export class ErrorThrowingTestAdapter extends BaseOAuthAdapter {
     context: { endpoint?: string; issuer?: string }
   ): OAuthError {
     return this.normalizeError(e, context);
+  }
+
+  public getProviderQuirks(): ProviderQuirks {
+    return {
+      supportsOIDCDiscovery: true,
+      requiresPKCE: true,
+      supportsRefreshTokens: true,
+      customParameters: [],
+    };
   }
 }
 
@@ -335,6 +351,10 @@ export class RefreshTokenTestAdapter extends BaseOAuthAdapter {
       customParameters: [],
     };
   }
+
+  public getProviderQuirks(): ProviderQuirks {
+    return this.computeProviderQuirks();
+  }
 }
 
 /**
@@ -383,4 +403,6 @@ export class MemoizationTestAdapter extends BaseOAuthAdapter {
   public getCallCount(): number {
     return this._quirksCallCount;
   }
+
+  // Use the base class memoization by not overriding getProviderQuirks
 }
