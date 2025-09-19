@@ -27,7 +27,6 @@ export abstract class BaseOAuthAdapter {
    */
   private providerQuirksCache?: ProviderQuirks;
 
-
   /**
    * Creates a new BaseOAuthAdapter instance
    *
@@ -80,7 +79,6 @@ export abstract class BaseOAuthAdapter {
    */
   protected abstract getAuthorizationEndpoint(): string;
 
-
   /**
    * Build base authorization parameters for the OAuth flow.
    *
@@ -121,8 +119,6 @@ export abstract class BaseOAuthAdapter {
 
     return url.toString();
   }
-
-
 
   /**
    * Exchange authorization code for access token.

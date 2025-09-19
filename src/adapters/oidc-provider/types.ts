@@ -171,7 +171,12 @@ export interface OIDCAuthUrlResult {
  */
 export interface OIDCErrorContext {
   /** Operation stage where error occurred */
-  stage: 'initialize' | 'discovery' | 'generateAuthUrl' | 'exchangeCode' | 'refreshToken';
+  stage:
+    | 'initialize'
+    | 'discovery'
+    | 'generateAuthUrl'
+    | 'exchangeCode'
+    | 'refreshToken';
   /** OIDC issuer identifier */
   issuer?: string | undefined;
   /** Discovery URL used (if applicable) */
@@ -200,7 +205,10 @@ export interface OIDCError {
  * Mock storage hook for testing
  */
 export class MockPKCEStorageHook implements PKCEStorageHook {
-  private storage = new Map<string, { state: string; codeVerifier: string; expiresAt: number }>();
+  private storage = new Map<
+    string,
+    { state: string; codeVerifier: string; expiresAt: number }
+  >();
 
   async storePKCEState(
     interactionId: string,
@@ -217,13 +225,13 @@ export class MockPKCEStorageHook implements PKCEStorageHook {
   ): Promise<string | null> {
     const entry = this.storage.get(interactionId);
     if (!entry) return null;
-    
+
     if (entry.state !== state) return null;
     if (Date.now() > entry.expiresAt) {
       this.storage.delete(interactionId);
       return null;
     }
-    
+
     return entry.codeVerifier;
   }
 

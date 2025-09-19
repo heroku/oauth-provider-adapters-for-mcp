@@ -5,8 +5,5 @@
     "sourceMap": true,
     "rootDirs": ["./test", "./src"]
   },
-  "include": [
-    "./test/**/*",
-    "./src/**/*"
-  ]
+  "include": ["./test/**/*", "./src/**/*"]
 }

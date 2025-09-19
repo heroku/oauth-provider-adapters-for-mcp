@@ -9,9 +9,7 @@ import { describe, it } from 'mocha';
 
 // Import the module being tested
 import { version, BaseOAuthAdapter, OIDCProviderAdapter } from './index.js';
-import {
-  moduleData
-} from './fixtures/test-data.js';
+import { moduleData } from './fixtures/test-data.js';
 
 describe('MCP OAuth Provider Adapters', () => {
   it('should export all required modules and properties', async () => {
