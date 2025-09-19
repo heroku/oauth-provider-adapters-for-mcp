@@ -5,6 +5,28 @@ import type {
   TokenResponse,
 } from './types.js';
 import { ErrorNormalizer } from './utils/error-normalizer.js';
+import { Logger } from './logging/types.js';
+import { DefaultLogger } from './logging/logger.js';
+
+const MCP_OAUTH_REDACTION_PATHS = [
+  // Direct fields
+  'clientSecret',
+  'accessToken',
+  'refreshToken',
+
+  // HTTP error contexts (predictable depth)
+  'response.data.access_token',
+  'response.data.client_secret',
+  'request.headers.authorization',
+
+  // Token endpoint responses
+  'body.access_token',
+  'data.refresh_token',
+
+  // Provider metadata
+  'metadata.client_secret',
+  'config.clientSecret',
+];
 
 /**
  * Abstract base class that all OAuth provider adapters must implement.
@@ -23,12 +45,27 @@ export abstract class BaseOAuthAdapter {
   private providerQuirksCache?: ProviderQuirks;
 
   /**
+   * Stores our lazily instantiated implementation of Logger.
+   */
+  private loggerImpl?: Logger;
+
+  /**
    * Creates a new BaseOAuthAdapter instance
    *
    * @param config - Provider-specific configuration including client credentials, scopes, and endpoints
    */
   public constructor(config: ProviderConfig) {
     this.config = config;
+  }
+
+  public get logger(): Logger {
+    if (this.loggerImpl === null || this.loggerImpl === undefined) {
+      this.loggerImpl = new DefaultLogger(
+        { clientId: this.config.clientId },
+        { redactPaths: MCP_OAUTH_REDACTION_PATHS }
+      );
+    }
+    return this.loggerImpl;
   }
 
   /**
