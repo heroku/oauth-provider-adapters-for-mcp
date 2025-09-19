@@ -40,8 +40,14 @@ export default defineConfig([
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      // Align with legacy config behavior
-      '@typescript-eslint/no-unused-vars': 'warn',
+      // Align with config behavior
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 
@@ -71,7 +77,13 @@ export default defineConfig([
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 ]);

@@ -54,7 +54,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   public async initialize(): Promise<void> {
     try {
-      this.logInfo('Starting OIDC provider initialization', {
+      this.logger.info('Starting OIDC provider initialization', {
         stage: 'initialize',
         hasIssuer: Boolean(this.oidcConfig.issuer),
         hasMetadata: Boolean(this.oidcConfig.metadata),
@@ -80,7 +80,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       this.initialized = true;
 
-      this.logInfo('OIDC provider initialization completed successfully', {
+      this.logger.info('OIDC provider initialization completed successfully', {
         stage: 'initialize',
         issuer: this.providerMetadata?.issuer,
         usedDiscovery: Boolean(this.oidcConfig.issuer),
@@ -89,12 +89,13 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
           : undefined,
       });
     } catch (error) {
-      this.logError('OIDC provider initialization failed', error, {
+      this.logger.error('OIDC provider initialization failed', {
         stage: 'initialize',
         issuer: this.oidcConfig.issuer,
         discoveryUrl: this.oidcConfig.issuer
           ? `${this.oidcConfig.issuer}/.well-known/openid-configuration`
           : undefined,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -122,7 +123,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
 
     try {
-      this.logInfo('Generating authorization URL', {
+      this.logger.info('Generating authorization URL', {
         stage: 'generateAuthUrl',
         state: interactionId,
         scopes: this.oidcConfig.scopes,
@@ -155,7 +156,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       const url = this.buildAuthorizeUrl(authEndpoint, params);
 
-      this.logInfo('Authorization URL generated successfully', {
+      this.logger.info('Authorization URL generated successfully', {
         stage: 'generateAuthUrl',
         state: interactionId,
         hasCodeChallenge: Boolean(pkcePair.codeChallenge),
@@ -164,10 +165,11 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       return url;
     } catch (error) {
-      this.logError('Failed to generate authorization URL', error, {
+      this.logger.error('Failed to generate authorization URL', {
         stage: 'generateAuthUrl',
         issuer: this.providerMetadata?.issuer,
         endpoint: this.providerMetadata?.authorization_endpoint,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -255,7 +257,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     const discoveryUrl = `${this.oidcConfig.issuer}/.well-known/openid-configuration`;
 
     try {
-      this.logInfo('Performing OIDC discovery', {
+      this.logger.info('Performing OIDC discovery', {
         stage: 'discovery',
         discoveryUrl,
         issuer: this.oidcConfig.issuer,
@@ -285,7 +287,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       this.providerMetadata = metadata;
 
-      this.logInfo('OIDC discovery completed successfully', {
+      this.logger.info('OIDC discovery completed successfully', {
         stage: 'discovery',
         discoveryUrl,
         issuer: metadata.issuer,
@@ -324,7 +326,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       );
     }
 
-    this.logInfo('Using static OIDC provider metadata', {
+    this.logger.info('Using static OIDC provider metadata', {
       stage: 'initialize',
       issuer: this.oidcConfig.metadata.issuer,
       hasAuthorizationEndpoint: Boolean(
@@ -432,27 +434,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   }
 
   /**
-   * Log info message with structured data
-   */
-  private logInfo(message: string, data: Record<string, unknown>): void {
-    console.log(`[OIDC-Adapter] ${message}`, JSON.stringify(data, null, 2));
-  }
-
-  /**
-   * Log error message with structured data
-   */
-  private logError(
-    message: string,
-    error: unknown,
-    context: Record<string, unknown>
-  ): void {
-    console.error(`[OIDC-Adapter] ${message}`, {
-      ...context,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  /**
    * Exchange authorization code for access token
    * @param code - Authorization code from callback
    * @param verifier - PKCE code verifier
@@ -460,9 +441,9 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @returns Token response
    */
   public async exchangeCode(
-    code: string,
-    verifier: string,
-    redirectUrl: string
+    _code: string,
+    _verifier: string,
+    _redirectUrl: string
   ): Promise<import('../../types.js').TokenResponse> {
     // TODO: Implement OIDC token exchange
     throw new Error('exchangeCode not yet implemented');
@@ -474,7 +455,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @returns New token response
    */
   public async refreshToken(
-    refreshToken: string
+    _refreshToken: string
   ): Promise<import('../../types.js').TokenResponse> {
     // TODO: Implement OIDC token refresh
     throw new Error('refreshToken not yet implemented');
