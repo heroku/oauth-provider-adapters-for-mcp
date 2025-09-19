@@ -174,17 +174,21 @@ export abstract class BaseOAuthAdapter {
 
   /**
    * Refresh an access token using a refresh token.
-   * Subclasses must implement this to handle token refresh.
-   *
-   * @param refreshToken - The refresh token to use
-   * @returns New normalized token response
-   */
+   * Subclasses are responsible for:
+   * - Performing the provider refresh request (if supported) and mapping the result
+   *   into a normalized {@link TokenResponse}
+   * - If refresh is not supported by the provider, throwing a normalized {@link OAuthError}
+   *   (e.g., statusCode 400 with error 'unsupported_grant_type') using {@link normalizeError}
+   * - Catching unknown/provider errors and re-throwing a normalized {@link OAuthError}
+   *   via {@link normalizeError} with context (e.g., endpoint: '/token')
+   * @param refreshToken - The refresh token to exchange
+   * @returns A normalized token response
   public abstract refreshToken(refreshToken: string): Promise<TokenResponse>;
 
   /**
-   * Get provider-specific capabilities and requirements.
-   * Uses lazy memoization to compute quirks only once.
-   * Performs no network I/O.
+  * Return provider-specific capability flags and quirks. Lazily memoizes
+   * the result of {@link computeProviderQuirks}. This method performs no
+   * network I/O.
    *
    * @returns Provider quirks object
    */
