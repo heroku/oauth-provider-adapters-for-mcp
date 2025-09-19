@@ -96,7 +96,7 @@ export interface OIDCProviderConfig extends ProviderConfig {
   issuer?: string;
   /** Static OIDC provider metadata (exactly one of issuer or metadata must be provided) */
   metadata?: OIDCProviderMetadata;
-  /** PKCE storage hook for state persistence */
+  /** PKCE storage hook for state persistence (optional - uses mock fallback if not provided) */
   storageHook?: PKCEStorageHook;
   /** PKCE state expiration time in seconds (default: 600 = 10 minutes) */
   pkceStateExpirationSeconds?: number;
@@ -199,61 +199,4 @@ export interface OIDCError {
   error_description?: string;
   /** Error context */
   context: OIDCErrorContext;
-}
-
-/**
- * Mock storage hook for testing
- */
-export class MockPKCEStorageHook implements PKCEStorageHook {
-  private storage = new Map<
-    string,
-    { state: string; codeVerifier: string; expiresAt: number }
-  >();
-
-  async storePKCEState(
-    interactionId: string,
-    state: string,
-    codeVerifier: string,
-    expiresAt: number
-  ): Promise<void> {
-    this.storage.set(interactionId, { state, codeVerifier, expiresAt });
-  }
-
-  async retrievePKCEState(
-    interactionId: string,
-    state: string
-  ): Promise<string | null> {
-    const entry = this.storage.get(interactionId);
-    if (!entry) return null;
-
-    if (entry.state !== state) return null;
-    if (Date.now() > entry.expiresAt) {
-      this.storage.delete(interactionId);
-      return null;
-    }
-
-    return entry.codeVerifier;
-  }
-
-  async cleanupExpiredState(beforeTimestamp: number): Promise<void> {
-    for (const [key, entry] of this.storage.entries()) {
-      if (entry.expiresAt < beforeTimestamp) {
-        this.storage.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Clear all stored state (for testing)
-   */
-  clear(): void {
-    this.storage.clear();
-  }
-
-  /**
-   * Get stored state count (for testing)
-   */
-  getStoredCount(): number {
-    return this.storage.size;
-  }
 }

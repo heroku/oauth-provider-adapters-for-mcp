@@ -12,8 +12,52 @@ import type {
   PKCEPair,
   PKCEStorageHook,
 } from './types.js';
-import { MockPKCEStorageHook } from './types.js';
 import { createHash, randomBytes } from 'crypto';
+
+/**
+ * Internal mock storage hook for PKCE state persistence
+ * Used as fallback when no storageHook is provided
+ * Suitable for development and testing only
+ */
+class MockPKCEStorageHook implements PKCEStorageHook {
+  private storage = new Map<
+    string,
+    { state: string; codeVerifier: string; expiresAt: number }
+  >();
+
+  async storePKCEState(
+    interactionId: string,
+    state: string,
+    codeVerifier: string,
+    expiresAt: number
+  ): Promise<void> {
+    this.storage.set(interactionId, { state, codeVerifier, expiresAt });
+  }
+
+  async retrievePKCEState(
+    interactionId: string,
+    state: string
+  ): Promise<string | null> {
+    const entry = this.storage.get(interactionId);
+    if (!entry) return null;
+
+    if (entry.state !== state) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.storage.delete(interactionId);
+      return null;
+    }
+
+    return entry.codeVerifier;
+  }
+
+  async cleanupExpiredState(beforeTimestamp: number): Promise<void> {
+    for (const [key, entry] of this.storage.entries()) {
+      if (entry.expiresAt < beforeTimestamp) {
+        this.storage.delete(key);
+      }
+    }
+  }
+}
 
 /**
  * OIDC Provider Adapter
