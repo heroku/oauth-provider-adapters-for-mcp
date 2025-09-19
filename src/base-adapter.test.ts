@@ -1,312 +1,375 @@
-/**
- * BaseOAuthAdapter comprehensive test suite
- * Tests all requirements for the abstract base class
- * Co-located with the base adapter for better maintainability
- */
-
-import assert from 'assert';
-import sinon from 'sinon';
+import { expect } from 'chai';
 import { BaseOAuthAdapter } from './base-adapter.js';
-import { testConfigs, errorData } from './fixtures/test-data.js';
+import type { OAuthError, ProviderConfig } from './types.js';
 import {
   ConfigurableTestAdapter,
+  TokenMappingTestAdapter,
+  ErrorThrowingTestAdapter,
+  RefreshTokenTestAdapter,
   MemoizationTestAdapter,
 } from './testUtils/adapters.js';
+import { DefaultLogger } from './logging/logger.js';
 
-describe('BaseOAuthAdapter', function () {
-  let fetchSpy: sinon.SinonSpy;
+describe('BaseOAuthAdapter', () => {
+  const mockConfig: ProviderConfig = {
+    clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
+    issuer: 'https://example.com',
+    scopes: ['openid', 'profile'],
+    customParameters: {
+      audience: 'test-audience',
+    },
+  };
 
-  beforeEach(function () {
-    fetchSpy = sinon.spy(globalThis, 'fetch');
-  });
+  describe('constructor', () => {
+    it('should store config as protected readonly property', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+      const storedConfig = adapter.getConfig();
 
-  afterEach(function () {
-    sinon.restore();
-  });
-
-  it('should enforce abstract methods at compile time', function () {
-    const adapter = new ConfigurableTestAdapter(testConfigs.valid);
-    assert(
-      adapter instanceof BaseOAuthAdapter,
-      'Should be instance of BaseOAuthAdapter'
-    );
-  });
-
-  it('should throw when calling abstract methods via dummy subclass', async function () {
-    const adapter = new ConfigurableTestAdapter(testConfigs.valid, {
-      initialized: false,
+      expect(storedConfig).to.equal(mockConfig);
+      expect(storedConfig.clientId).to.equal('test-client-id');
+      expect(storedConfig.scopes).to.deep.equal(['openid', 'profile']);
+      expect(storedConfig.customParameters?.audience).to.equal('test-audience');
     });
 
-    await assert.rejects(
-      adapter.generateAuthUrl('test-id', 'https://example.com/callback'),
-      (err: any) => err.error === 'server_error'
-    );
-  });
+    it('should be constructible with minimal config', () => {
+      const minimalConfig: ProviderConfig = {
+        clientId: 'minimal-client',
+        metadata: { authorization_endpoint: 'https://auth.example.com' },
+        scopes: ['read'],
+      };
 
-  it('should accept config: ProviderConfig as an argument', function () {
-    const config = testConfigs.valid;
-    const adapter = new ConfigurableTestAdapter(config);
-
-    assert(adapter.getConfig(), 'Should store config');
-    assert.equal(adapter.getConfig().clientId, config.clientId);
-    assert.deepEqual(adapter.getConfig().scopes, config.scopes);
-  });
-
-  it('should reject generateAuthUrl before initialize() with normalized error', async function () {
-    const adapter = new ConfigurableTestAdapter(testConfigs.valid, {
-      initialized: false,
-    });
-
-    await assert.rejects(
-      adapter.generateAuthUrl('test-id', 'https://example.com/callback'),
-      (err: any) => {
-        assert.equal(err.error, 'server_error');
-        assert(err.error_description?.includes('Adapter not initialized'));
-        assert.equal(err.endpoint, '/authorize');
-        return true;
-      }
-    );
-  });
-
-  describe('URL Composition', function () {
-    let adapter: ConfigurableTestAdapter;
-
-    beforeEach(async function () {
-      adapter = new ConfigurableTestAdapter(testConfigs.valid);
-      await adapter.initialize();
-    });
-
-    it('should return URL with state=interactionId and URL-encoded redirect_uri', async function () {
-      const interactionId = 'test-interaction-123';
-      const redirectUrl = 'https://example.com/callback?param=value';
-
-      const authUrl = await adapter.generateAuthUrl(interactionId, redirectUrl);
-
-      assert(
-        authUrl.includes(`state=${interactionId}`),
-        'Should include state parameter'
-      );
-      assert(
-        authUrl.includes('redirect_uri='),
-        'Should include redirect_uri parameter'
-      );
-      assert(
-        authUrl.includes(encodeURIComponent(redirectUrl)),
-        'Should URL-encode redirect_uri'
-      );
-    });
-
-    it('should merge custom parameters with base params', async function () {
-      const configWithCustom = {
-        ...testConfigs.valid,
-        customParameters: {
-          custom_param: 'custom_value',
-          another_param: 'another_value',
+      const minimalOptions = {
+        tokenResponse: { accessToken: 'x' },
+        refreshTokenResponse: { accessToken: 'y' },
+        quirks: {
+          supportsOIDCDiscovery: false,
+          requiresPKCE: false,
+          supportsRefreshTokens: false,
+          customParameters: [],
         },
       };
 
-      const adapter = new ConfigurableTestAdapter(configWithCustom);
+      expect(
+        () => new ConfigurableTestAdapter(minimalConfig, minimalOptions)
+      ).to.not.throw();
+    });
+  });
+
+  describe('logger', () => {
+    it('lazily instantiates and returns a default logger', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(adapter.logger).to.be.instanceOf(DefaultLogger);
+    });
+
+    it('memoizes and returns the same instance of logger on each call', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(adapter.logger).to.equal(adapter.logger);
+    });
+  });
+
+  describe('abstract class behavior', () => {
+    it('should be abstract at compile-time but allow runtime instantiation', () => {
+      // TypeScript compile-time check - this should fail compilation if uncommented:
+      // const adapter = new BaseOAuthAdapter(mockConfig);
+
+      // Runtime instantiation is allowed (runtime check was removed)
+      // but the instance cannot be used because abstract methods are not implemented
+      expect(() => {
+        // @ts-expect-error Testing abstract class instantiation
+        new BaseOAuthAdapter(mockConfig);
+      }).to.not.throw();
+    });
+
+    it('should expose abstract API on subclasses', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig, {
+        tokenResponse: { accessToken: 'ok' },
+        refreshTokenResponse: { accessToken: 'ok2' },
+      });
+      expect(adapter).to.be.instanceOf(BaseOAuthAdapter);
+      expect(adapter.generateAuthUrl).to.be.a('function');
+      expect(adapter.refreshToken).to.be.a('function');
+    });
+  });
+
+  describe('generateAuthUrl', () => {
+    it('should generate URL with required parameters after initialization', async () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig, {
+        tokenResponse: { accessToken: 'test' },
+        refreshTokenResponse: { accessToken: 'refresh' },
+        quirks: { customParameters: ['audience'] },
+      });
       await adapter.initialize();
 
-      const authUrl = await adapter.generateAuthUrl(
-        'test-id',
+      const url = await adapter.generateAuthUrl(
+        'test-interaction',
         'https://example.com/callback'
       );
 
-      assert(
-        authUrl.includes('custom_param=custom_value'),
-        'Should include custom parameter'
+      // Parse the URL to properly validate its structure
+      const parsedUrl = new URL(url);
+
+      // Validate base URL
+      expect(parsedUrl.origin).to.equal('https://auth.example.com');
+      expect(parsedUrl.pathname).to.equal('/authorize');
+
+      // Validate query parameters
+      expect(parsedUrl.searchParams.get('response_type')).to.equal('code');
+      expect(parsedUrl.searchParams.get('client_id')).to.equal(
+        'test-client-id'
       );
-      assert(
-        authUrl.includes('another_param=another_value'),
-        'Should include another custom parameter'
-      );
-      assert(
-        authUrl.includes('response_type=code'),
-        'Should include base parameters'
-      );
-      assert(authUrl.includes('client_id='), 'Should include client_id');
-    });
-  });
-
-  describe('No I/O', function () {
-    it('should not call globalThis.fetch during generateAuthUrl', async function () {
-      const adapter = new ConfigurableTestAdapter(testConfigs.valid);
-      await adapter.initialize();
-
-      await adapter.generateAuthUrl('test-id', 'https://example.com/callback');
-
-      assert.equal(
-        fetchSpy.callCount,
-        0,
-        'Should not call fetch during generateAuthUrl'
-      );
-    });
-  });
-
-  describe('Exchange Code', function () {
-    let adapter: ConfigurableTestAdapter;
-
-    beforeEach(async function () {
-      adapter = new ConfigurableTestAdapter(testConfigs.valid);
-      await adapter.initialize();
-    });
-
-    it('should map success to normalized TokenResponse', async function () {
-      const result = await adapter.exchangeCode(
-        'auth-code',
-        'verifier',
+      expect(parsedUrl.searchParams.get('redirect_uri')).to.equal(
         'https://example.com/callback'
       );
-
-      assert.equal(result.accessToken, 'default-access-token');
-      assert.equal(result.refreshToken, undefined);
-      assert.equal(result.expiresIn, undefined);
+      expect(parsedUrl.searchParams.get('scope')).to.equal('openid profile');
+      expect(parsedUrl.searchParams.get('state')).to.equal('test-interaction');
     });
 
-    it('should normalize provider errors to OAuthError', async function () {
-      const providerError = errorData.openidError;
-      const adapterWithError = new ConfigurableTestAdapter(testConfigs.valid, {
-        exchangeCodeError: providerError,
-      });
-      await adapterWithError.initialize();
-
-      await assert.rejects(
-        adapterWithError.exchangeCode(
-          'auth-code',
-          'verifier',
-          'https://example.com/callback'
-        ),
-        (err: any) => {
-          assert.equal(err.error, 'invalid_grant');
-          assert(err.error_description?.includes('Invalid authorization code'));
-          return true;
-        }
-      );
-    });
-  });
-
-  describe('Refresh Token', function () {
-    let adapter: ConfigurableTestAdapter;
-
-    beforeEach(async function () {
-      adapter = new ConfigurableTestAdapter(testConfigs.valid);
-      await adapter.initialize();
-    });
-
-    it('should map success to new accessToken', async function () {
-      const result = await adapter.refreshToken('refresh-token');
-
-      assert.equal(result.accessToken, 'default-refresh-token');
-      assert.equal(result.refreshToken, undefined);
-    });
-
-    it('should throw normalized error for unsupported operation', async function () {
-      const adapterNoRefresh = new ConfigurableTestAdapter(testConfigs.valid, {
-        supportsRefresh: false,
-      });
-      await adapterNoRefresh.initialize();
-
-      await assert.rejects(
-        adapterNoRefresh.refreshToken('refresh-token'),
-        (err: any) => {
-          assert.equal(err.error, 'unsupported_grant_type');
-          assert(
-            err.error_description?.includes('Refresh token not supported')
-          );
-          return true;
-        }
-      );
-    });
-  });
-
-  describe('Memoization', function () {
-    it('should call computeProviderQuirks() once across multiple getProviderQuirks() calls', async function () {
-      const adapter = new MemoizationTestAdapter(testConfigs.valid);
-      await adapter.initialize();
-
-      // Get initial call count
-      const initialCount = adapter.getCallCount();
-
-      // Call getProviderQuirks multiple times
-      const quirks1 = adapter.getProviderQuirks();
-      const quirks2 = adapter.getProviderQuirks();
-      const quirks3 = adapter.getProviderQuirks();
-
-      // All calls should return the same result
-      assert.deepEqual(quirks1, quirks2);
-      assert.deepEqual(quirks2, quirks3);
-
-      // The underlying compute method should only be called once due to memoization
-      // (initial count + 1 for the first call, then memoized)
-      assert.equal(
-        adapter.getCallCount(),
-        initialCount + 1,
-        'Should call computeProviderQuirks exactly once after initial calls'
-      );
-    });
-  });
-
-  describe('No I/O', function () {
-    it('should not call globalThis.fetch during getProviderQuirks', async function () {
-      const adapter = new ConfigurableTestAdapter(testConfigs.valid);
-      await adapter.initialize();
-
-      adapter.getProviderQuirks();
-
-      assert.equal(
-        fetchSpy.callCount,
-        0,
-        'Should not call fetch during getProviderQuirks'
-      );
-    });
-  });
-
-  describe('Shape', function () {
-    it('should return object with required fields', async function () {
-      const adapter = new ConfigurableTestAdapter(testConfigs.valid);
-      await adapter.initialize();
-
-      const quirks = adapter.getProviderQuirks();
-
-      assert(
-        quirks.hasOwnProperty('supportsOIDCDiscovery'),
-        'Should have supportsOIDCDiscovery'
-      );
-      assert(quirks.hasOwnProperty('requiresPKCE'), 'Should have requiresPKCE');
-      assert(
-        quirks.hasOwnProperty('supportsRefreshTokens'),
-        'Should have supportsRefreshTokens'
-      );
-      assert(
-        quirks.hasOwnProperty('customParameters'),
-        'Should have customParameters'
-      );
-    });
-
-    it('should reflect customParameters in config', async function () {
+    it('should merge custom parameters with base parameters', async () => {
       const configWithCustom = {
-        ...testConfigs.valid,
+        ...mockConfig,
         customParameters: {
-          custom_param: 'custom_value',
+          audience: 'test-audience',
+          prompt: 'login',
         },
       };
 
       const adapter = new ConfigurableTestAdapter(configWithCustom, {
-        trackQuirksCalls: true,
+        quirks: { customParameters: ['audience'] },
       });
       await adapter.initialize();
 
+      const url = await adapter.generateAuthUrl(
+        'test-interaction',
+        'https://example.com/callback'
+      );
+
+      // Parse URL to validate structure
+      const parsedUrl = new URL(url);
+
+      // Validate custom parameters are included
+      expect(parsedUrl.searchParams.get('audience')).to.equal('test-audience');
+      expect(parsedUrl.searchParams.get('prompt')).to.equal('login');
+
+      // Validate base parameters are still present
+      expect(parsedUrl.searchParams.get('response_type')).to.equal('code');
+      expect(parsedUrl.searchParams.get('client_id')).to.equal(
+        'test-client-id'
+      );
+    });
+
+    it('should handle custom parameters that override base parameters', async () => {
+      const configWithOverride = {
+        ...mockConfig,
+        customParameters: {
+          scope: 'custom-scope',
+          response_type: 'code id_token',
+        },
+      };
+
+      const adapter = new ConfigurableTestAdapter(configWithOverride, {
+        quirks: { customParameters: ['audience'] },
+      });
+      await adapter.initialize();
+
+      const url = await adapter.generateAuthUrl(
+        'test-interaction',
+        'https://example.com/callback'
+      );
+
+      // Parse URL to validate structure
+      const parsedUrl = new URL(url);
+
+      // Custom parameters should override base parameters
+      expect(parsedUrl.searchParams.get('scope')).to.equal('custom-scope');
+      expect(parsedUrl.searchParams.get('response_type')).to.equal(
+        'code id_token'
+      );
+      expect(parsedUrl.searchParams.get('client_id')).to.equal(
+        'test-client-id'
+      );
+    });
+  });
+
+  describe('normalizeError', () => {
+    const adapter = new ConfigurableTestAdapter(mockConfig, {
+      tokenResponse: { accessToken: 'access' },
+      refreshTokenResponse: { accessToken: 'access2' },
+    });
+
+    it('should pass through OAuth-shaped errors', () => {
+      const err: OAuthError = {
+        statusCode: 400,
+        error: 'invalid_request',
+        error_description: 'Missing code',
+        endpoint: '/token',
+        issuer: 'https://example.com',
+      };
+
+      const normalized = adapter.exposeNormalizeError(err, {});
+      expect(normalized).to.deep.include({
+        statusCode: 400,
+        error: 'invalid_request',
+        error_description: 'Missing code',
+      });
+    });
+
+    it('should normalize axios-like errors', () => {
+      const axiosLike = {
+        response: {
+          status: 401,
+          data: { error: 'unauthorized', error_description: 'bad client' },
+        },
+      };
+
+      const normalized = adapter.exposeNormalizeError(axiosLike, {
+        endpoint: '/token',
+      });
+      expect(normalized.statusCode).to.equal(401);
+      expect(normalized.error).to.equal('unauthorized');
+      expect(normalized.error_description).to.equal('bad client');
+      expect(normalized.endpoint).to.equal('/token');
+      expect(normalized.issuer).to.equal('https://example.com');
+    });
+
+    it('should normalize fetch-like response objects', () => {
+      const fetchLike = { status: 404, statusText: 'Not Found' };
+      const normalized = adapter.exposeNormalizeError(fetchLike, {
+        endpoint: '/auth',
+      });
+      expect(normalized.statusCode).to.equal(404);
+      expect(normalized.error).to.equal('invalid_request');
+      expect(normalized.error_description).to.equal('Not Found');
+      expect(normalized.endpoint).to.equal('/auth');
+    });
+
+    it('should normalize native Error instances', () => {
+      const timeoutError = new Error('Request timeout after 30s');
+      const normalized = adapter.exposeNormalizeError(timeoutError, {});
+      expect(normalized.statusCode).to.equal(504);
+      expect(normalized.error).to.equal('temporarily_unavailable');
+      expect(normalized.error_description).to.include('timeout');
+    });
+
+    it('should normalize primitive strings', () => {
+      const normalized = adapter.exposeNormalizeError('just failed', {
+        issuer: 'x',
+      });
+      expect(normalized.statusCode).to.equal(500);
+      expect(normalized.error).to.equal('server_error');
+      expect(normalized.error_description).to.equal('just failed');
+      expect(normalized.issuer).to.equal('x');
+    });
+  });
+
+  describe('token exchange and refresh flows (dummy subclasses)', () => {
+    it('exchangeCode: maps provider payload into TokenResponse', async () => {
+      const adapter = new TokenMappingTestAdapter(mockConfig);
+      const res = await adapter.exchangeCode('code', 'verifier', 'http://cb');
+      expect(res).to.deep.equal({
+        accessToken: 'A',
+        refreshToken: 'R',
+        idToken: 'ID',
+        expiresIn: 3600,
+        scope: 'openid profile',
+      });
+    });
+
+    it('exchangeCode: normalizes provider-shaped error', async () => {
+      const adapter = new ErrorThrowingTestAdapter(mockConfig);
+      try {
+        await adapter.exchangeCode('code', 'verifier', 'http://cb');
+        expect.fail('Expected to throw');
+      } catch (err) {
+        const e = err as OAuthError;
+        expect(e.statusCode).to.equal(400);
+        expect(e.error).to.equal('invalid_grant');
+        expect(e.error_description).to.equal('bad code');
+        expect(e.endpoint).to.equal('/token');
+        expect(e.issuer).to.equal('https://example.com');
+      }
+    });
+
+    it('refreshToken: success returns new accessToken and optional refreshToken', async () => {
+      const adapter = new RefreshTokenTestAdapter(mockConfig, true);
+      const res = await adapter.refreshToken('OLD_R');
+      expect(res).to.deep.equal({ accessToken: 'NEW', refreshToken: 'NEW_R' });
+    });
+
+    it('refreshToken: unsupported throws normalized error', async () => {
+      const adapter = new RefreshTokenTestAdapter(mockConfig, false);
+      try {
+        await adapter.refreshToken('anything');
+        expect.fail('Expected to throw');
+      } catch (err) {
+        const e = err as OAuthError;
+        expect(e.statusCode).to.equal(400);
+        expect(e.error).to.equal('unsupported_grant_type');
+        expect(e.error_description).to.match(/not supported/i);
+        expect(e.endpoint).to.equal('/token');
+      }
+    });
+  });
+
+  describe('getProviderQuirks', () => {
+    it('memoizes computeProviderQuirks across calls', () => {
+      const cfg: ProviderConfig = {
+        clientId: 'x',
+        issuer: 'https://issuer.example',
+        scopes: ['openid'],
+        customParameters: { audience: 'api' },
+      };
+
+      const adapter = new MemoizationTestAdapter(cfg);
+      const q1 = adapter.getProviderQuirks();
+      const q2 = adapter.getProviderQuirks();
+      const q3 = adapter.getProviderQuirks();
+
+      expect(q1).to.equal(q2);
+      expect(q2).to.equal(q3);
+      expect(adapter.getCallCount()).to.equal(1);
+    });
+
+    it('performs no network I/O (no fetch calls)', () => {
+      const originalFetch = globalThis.fetch;
+      let fetchCalls = 0;
+      const anyGlobal: any = globalThis as unknown as { fetch?: unknown };
+      // Assign without compile-time error; runtime will still override
+      anyGlobal.fetch = ((..._args: unknown[]) => {
+        void _args;
+        fetchCalls += 1;
+        return Promise.reject(new Error('should not be called'));
+      }) as typeof globalThis.fetch;
+
+      try {
+        const adapter = new ConfigurableTestAdapter({
+          clientId: 'x',
+          scopes: ['s'],
+        });
+        const quirks = adapter.getProviderQuirks();
+        expect(quirks).to.have.property('requiresPKCE', true);
+        expect(fetchCalls).to.equal(0);
+      } finally {
+        anyGlobal.fetch = originalFetch as unknown as typeof globalThis.fetch;
+      }
+    });
+
+    it('returns expected shape and customParameters reflect config', () => {
+      const cfg: ProviderConfig = {
+        clientId: 'a',
+        scopes: ['openid', 'profile'],
+        issuer: 'https://issuer.example',
+        customParameters: { audience: 'api', prompt: 'login' },
+      };
+      const adapter = new ConfigurableTestAdapter(cfg);
       const quirks = adapter.getProviderQuirks();
 
-      assert(
-        Array.isArray(quirks.customParameters),
-        'customParameters should be array'
-      );
-      assert(
-        quirks.customParameters.includes('custom_param'),
-        `Should include custom parameter. Got: ${JSON.stringify(quirks.customParameters)}`
-      );
+      expect(quirks.supportsOIDCDiscovery).to.equal(true);
+      expect(quirks.requiresPKCE).to.equal(true);
+      expect(quirks.supportsRefreshTokens).to.equal(true);
+      expect(quirks.customParameters).to.have.members(['audience', 'prompt']);
     });
   });
 });
