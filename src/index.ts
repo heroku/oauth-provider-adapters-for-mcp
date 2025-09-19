@@ -1,14 +1,25 @@
 /**
- * Basic test file to verify dual build output (CJS/ESM)
+ * MCP OAuth Provider Adapters Library
+ * Main entry point for OAuth provider adapters
  */
 
 export const version = '0.0.1';
 
-export function greet(name: string): string {
-  return `Hello, ${name}!`;
-}
+// Export all adapters
+export * from './adapters/index.js';
+
+// Export base adapter and types
+export { BaseOAuthAdapter } from './base-adapter.js';
+export type {
+  ProviderConfig,
+  TokenResponse,
+  OAuthError,
+  ProviderQuirks,
+} from './types.js';
+
+// Export utilities
+export { ErrorNormalizer } from './utils/error-normalizer.js';
 
 export default {
   version,
-  greet,
 };

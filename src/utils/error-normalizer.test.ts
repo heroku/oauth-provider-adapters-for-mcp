@@ -1,5 +1,12 @@
+/**
+ * Error Normalizer unit tests
+ * Tests error normalization functionality in isolation
+ * Co-located with the utility for better maintainability
+ */
+
 import { expect } from 'chai';
 import { ErrorNormalizer } from './error-normalizer.js';
+import { errorData, contextData } from '../fixtures/test-data.js';
 
 describe('ErrorNormalizer', () => {
   const defaultIssuer = 'https://issuer.example.com';
@@ -153,6 +160,67 @@ describe('ErrorNormalizer', () => {
         defaultIssuer
       );
       expect(n.error).to.equal('invalid_request');
+    });
+  });
+
+  // Additional test coverage from newer tests
+  describe('Additional test coverage', function () {
+    it('should handle missing context gracefully', function () {
+      const error = new Error('Test error');
+      const result = ErrorNormalizer.normalizeError(
+        error,
+        {},
+        'https://auth.example.com'
+      );
+
+      expect(result.statusCode).to.equal(500);
+      expect(result.error).to.equal('server_error');
+    });
+
+    it('should normalize HTTP errors from fixtures', function () {
+      const httpError = errorData.http400;
+      const context = contextData.tokenEndpoint;
+      const result = ErrorNormalizer.normalizeError(
+        httpError,
+        context,
+        'https://auth.example.com'
+      );
+
+      expect(result.statusCode).to.equal(400);
+      expect(result.error).to.equal('invalid_request');
+      expect(result.error_description).to.equal('Bad Request');
+      expect(result.endpoint).to.equal(context.endpoint);
+      expect(result.issuer).to.equal(context.issuer);
+    });
+
+    it('should normalize network errors from fixtures', function () {
+      const networkError = errorData.networkTimeout;
+      const context = contextData.discoveryEndpoint;
+      const result = ErrorNormalizer.normalizeError(
+        networkError,
+        context,
+        'https://auth.example.com'
+      );
+
+      expect(result.statusCode).to.equal(504);
+      expect(result.error).to.equal('temporarily_unavailable');
+      expect(result.error_description).to.include('Network timeout');
+      expect(result.endpoint).to.equal(context.endpoint);
+    });
+
+    it('should normalize unknown errors from fixtures', function () {
+      const unknownError = { someProperty: 'value', anotherProperty: 123 };
+      const context = contextData.authorizeEndpoint;
+      const result = ErrorNormalizer.normalizeError(
+        unknownError,
+        context,
+        'https://auth.example.com'
+      );
+
+      expect(result.statusCode).to.equal(500);
+      expect(result.error).to.equal('server_error');
+      expect(result.error_description).to.equal('Internal Server Error');
+      expect(result.endpoint).to.equal(context.endpoint);
     });
   });
 });

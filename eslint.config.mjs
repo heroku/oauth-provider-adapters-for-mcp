@@ -25,7 +25,7 @@ export default defineConfig([
 
   // TypeScript source files
   {
-    files: ['**/*.ts', '**/*.mts', '**/*.cts'],
+    files: ['src/**/*.ts', 'src/**/*.mts', 'src/**/*.cts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -40,15 +40,32 @@ export default defineConfig([
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      // Align with legacy config behavior
-      '@typescript-eslint/no-unused-vars': 'warn',
+      // Align with config behavior
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 
-  // Test files (Mocha)
+  // Test files (Mocha) - Updated for colocation
   {
-    files: ['test/**/*.ts', '**/*.spec.ts', '**/*.test.ts'],
+    files: [
+      'src/**/*.test.ts',
+      'src/**/*.spec.ts',
+      'src/testUtils/**/*.test.ts',
+    ],
     languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: ['./tsconfig.test.json'],
+        tsconfigRootDir: path.dirname(fileURLToPath(import.meta.url)),
+        ecmaVersion: 2022,
+        sourceType: 'module',
+      },
       globals: {
         describe: 'readonly',
         it: 'readonly',
@@ -56,7 +73,21 @@ export default defineConfig([
         beforeEach: 'readonly',
         after: 'readonly',
         afterEach: 'readonly',
+        console: 'readonly',
+        global: 'readonly',
       },
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 ]);
