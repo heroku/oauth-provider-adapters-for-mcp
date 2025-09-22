@@ -88,7 +88,23 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   public constructor(config: OIDCProviderConfig) {
     super(config);
     this.oidcConfig = config;
-    this.storageHook = config.storageHook || new MockPKCEStorageHook();
+    if (!config.storageHook) {
+      // Prevent unsafe fallback in production
+      if (process.env.NODE_ENV === 'production') {
+        throw this.createError(
+          'invalid_request',
+          'Persistent storageHook is required in production; in-memory storage is not allowed',
+          { stage: 'initialize' }
+        );
+      }
+      this.logger.warn(
+        'No storageHook provided; using in-memory mock storage (not for production)',
+        { stage: 'initialize' }
+      );
+      this.storageHook = new MockPKCEStorageHook();
+    } else {
+      this.storageHook = config.storageHook;
+    }
     this.pkceStateExpirationSeconds = config.pkceStateExpirationSeconds || 600; // 10 minutes default
   }
 
@@ -106,6 +122,9 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       // Validate configuration
       this.validateConfiguration();
+
+      // Validate storage hook shape and basic health
+      await this.validateStorageHook();
 
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
@@ -475,6 +494,32 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       { error, error_description: description, statusCode: 400 },
       errorContext
     );
+  }
+
+  /**
+   * Validate storage hook contract and perform lightweight health check
+   */
+  private async validateStorageHook(): Promise<void> {
+    const hook = this.storageHook;
+    const hasMethods =
+      hook &&
+      typeof hook.storePKCEState === 'function' &&
+      typeof hook.retrievePKCEState === 'function' &&
+      typeof hook.cleanupExpiredState === 'function';
+    if (!hasMethods) {
+      throw this.createError(
+        'invalid_request',
+        'storageHook must implement storePKCEState, retrievePKCEState, and cleanupExpiredState',
+        { stage: 'initialize' }
+      );
+    }
+
+    // Lightweight health check: ensure cleanupExpiredState resolves
+    try {
+      await hook.cleanupExpiredState(Date.now());
+    } catch (e) {
+      throw this.normalizeError(e, { endpoint: 'storageHook.cleanupExpiredState' });
+    }
   }
 
   /**
