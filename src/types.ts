@@ -64,3 +64,26 @@ export type OAuthError = {
   /** Provider issuer identifier */
   issuer?: string;
 };
+
+// Minimal ambient typings for openid-client used by this project within scope of 1.8.3a
+declare module 'openid-client' {
+  export const generators: {
+    codeVerifier(): string;
+    codeChallenge(verifier: string): string;
+  };
+
+  export const custom: {
+    setHttpOptionsDefaults(opts: { timeout?: number }): void;
+  };
+
+  export class Issuer {
+    metadata: Record<string, unknown>;
+    constructor(metadata: Record<string, unknown>);
+    static discover(issuer: string): Promise<Issuer>;
+    Client: new (cfg: { client_id: string }) => Client;
+  }
+
+  export interface Client {
+    authorizationUrl(params: Record<string, string>): string;
+  }
+}
