@@ -12,7 +12,15 @@ import type {
   PKCEPair,
   PKCEStorageHook,
 } from './types.js';
-import { createHash, randomBytes } from 'crypto';
+import { Issuer, generators, custom, Client } from 'openid-client';
+
+/**
+ * Circuit breaker state type for discovery
+ */
+type DiscoveryCircuitState = {
+  consecutiveFailures: number;
+  openedUntil?: number;
+};
 
 /**
  * Internal mock storage hook for PKCE state persistence
@@ -79,6 +87,23 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   /** PKCE state expiration time in seconds */
   private readonly pkceStateExpirationSeconds: number;
 
+  /** Discovered OpenID Issuer instance */
+  private discoveredIssuer?: Issuer;
+
+  /** OpenID Client built from discovered/static metadata */
+  private oidcClient?: Client;
+
+  /**
+   * Simple circuit breaker state per issuer to avoid hammering failing discovery endpoints
+   */
+  private static discoveryCircuit: Map<string, DiscoveryCircuitState> =
+    new Map();
+
+  private static readonly DISCOVERY_MAX_RETRIES = 2; // total attempts = 1 + retries
+  private static readonly DISCOVERY_BACKOFF_MS = 300; // base backoff
+  private static readonly CIRCUIT_FAILURE_THRESHOLD = 3;
+  private static readonly CIRCUIT_OPEN_MS = 60_000; // 60s
+
   // Note: initialized property is inherited from BaseOAuthAdapter
 
   /**
@@ -125,6 +150,9 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       // Validate storage hook shape and basic health
       await this.validateStorageHook();
+
+      // Set sane default HTTP timeouts for discovery
+      custom.setHttpOptionsDefaults({ timeout: 8_000 });
 
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
@@ -192,8 +220,14 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         scopes: this.oidcConfig.scopes,
       });
 
-      // Generate PKCE pair
-      const pkcePair = this.generatePKCEPair();
+      // Generate PKCE pair using openid-client
+      const codeVerifier = generators.codeVerifier();
+      const codeChallenge = generators.codeChallenge(codeVerifier);
+      const pkcePair = {
+        codeVerifier,
+        codeChallenge,
+        codeChallengeMethod: 'S256' as const,
+      };
 
       // Store PKCE state
       const expiresAt = Date.now() + this.pkceStateExpirationSeconds * 1000;
@@ -204,20 +238,28 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         expiresAt
       );
 
-      // Build authorization URL
-      const authEndpoint = this.providerMetadata!.authorization_endpoint;
+      // Build authorization URL via openid-client Client when available
       const params = {
         response_type: 'code',
-        client_id: this.oidcConfig.clientId,
-        redirect_uri: redirectUrl,
         scope: this.oidcConfig.scopes.join(' '),
         state: interactionId,
         code_challenge: pkcePair.codeChallenge,
         code_challenge_method: pkcePair.codeChallengeMethod,
+        redirect_uri: redirectUrl,
         ...this.oidcConfig.customParameters,
-      };
+      } as Record<string, string>;
 
-      const url = this.buildAuthorizeUrl(authEndpoint, params);
+      let url: string;
+      if (this.oidcClient) {
+        url = this.oidcClient.authorizationUrl(params);
+      } else {
+        // Fallback to manual URL construction if client not available (static metadata path)
+        const authEndpoint = this.providerMetadata!.authorization_endpoint;
+        url = this.buildAuthorizeUrl(authEndpoint, {
+          client_id: this.oidcConfig.clientId,
+          ...params,
+        });
+      }
 
       this.logger.info('Authorization URL generated successfully', {
         stage: 'generateAuthUrl',
@@ -317,62 +359,88 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       );
     }
 
-    const discoveryUrl = `${this.oidcConfig.issuer}/.well-known/openid-configuration`;
+    const issuer = this.oidcConfig.issuer;
+    const discoveryUrl = `${issuer}/.well-known/openid-configuration`;
 
-    try {
-      this.logger.info('Performing OIDC discovery', {
-        stage: 'discovery',
-        discoveryUrl,
-        issuer: this.oidcConfig.issuer,
-      });
-
-      // TODO: Implement actual OIDC discovery using openid-client
-      // This is a placeholder implementation
-      const response = await fetch(discoveryUrl);
-
-      if (!response.ok) {
-        throw this.createError(
-          'server_error',
-          `Discovery failed with status ${response.status}`,
-          {
-            stage: 'discovery',
-            issuer: this.oidcConfig.issuer,
-            discoveryUrl,
-            endpoint: discoveryUrl,
-          }
-        );
-      }
-
-      const metadata = (await response.json()) as OIDCProviderMetadata;
-
-      // Validate required endpoints
-      this.validateProviderMetadata(metadata);
-
-      this.providerMetadata = metadata;
-
-      this.logger.info('OIDC discovery completed successfully', {
-        stage: 'discovery',
-        discoveryUrl,
-        issuer: metadata.issuer,
-        hasAuthorizationEndpoint: Boolean(metadata.authorization_endpoint),
-        hasTokenEndpoint: Boolean(metadata.token_endpoint),
-        hasUserinfoEndpoint: Boolean(metadata.userinfo_endpoint),
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('fetch')) {
-        throw this.createError(
-          'server_error',
-          'Failed to perform OIDC discovery',
-          {
-            stage: 'discovery',
-            issuer: this.oidcConfig.issuer,
-            discoveryUrl,
-            endpoint: discoveryUrl,
-          }
-        );
-      }
-      throw error;
+    // Circuit breaker: if open, fail fast
+    const circuit =
+      OIDCProviderAdapter.discoveryCircuit.get(issuer) ||
+      ({ consecutiveFailures: 0 } as DiscoveryCircuitState);
+    if (circuit.openedUntil && Date.now() < circuit.openedUntil) {
+      throw this.createError(
+        'temporarily_unavailable',
+        'Discovery circuit is open due to recent failures. Try again later.',
+        { stage: 'discovery', issuer, discoveryUrl, endpoint: discoveryUrl }
+      );
     }
+
+    this.logger.info('Performing OIDC discovery', {
+      stage: 'discovery',
+      discoveryUrl,
+      issuer,
+    });
+
+    let lastError: unknown;
+    for (
+      let attempt = 0;
+      attempt <= OIDCProviderAdapter.DISCOVERY_MAX_RETRIES;
+      attempt++
+    ) {
+      try {
+        const discovered = await Issuer.discover(issuer);
+        this.discoveredIssuer = discovered;
+        const metadata = discovered.metadata as unknown as OIDCProviderMetadata;
+
+        // Validate required endpoints
+        this.validateProviderMetadata(metadata);
+
+        this.providerMetadata = metadata;
+
+        // Build a minimal client for authorization URL construction
+        this.oidcClient = new discovered.Client({
+          client_id: this.oidcConfig.clientId,
+        });
+
+        // Reset circuit breaker on success
+        OIDCProviderAdapter.discoveryCircuit.set(issuer, {
+          consecutiveFailures: 0,
+        });
+
+        this.logger.info('OIDC discovery completed successfully', {
+          stage: 'discovery',
+          discoveryUrl,
+          issuer: metadata.issuer,
+          hasAuthorizationEndpoint: Boolean(metadata.authorization_endpoint),
+          hasTokenEndpoint: Boolean(metadata.token_endpoint),
+          hasUserinfoEndpoint: Boolean(metadata.userinfo_endpoint),
+        });
+        return;
+      } catch (e) {
+        lastError = e;
+        // Exponential backoff before retry, except after last attempt
+        if (attempt < OIDCProviderAdapter.DISCOVERY_MAX_RETRIES) {
+          const wait =
+            OIDCProviderAdapter.DISCOVERY_BACKOFF_MS * Math.pow(2, attempt);
+          await new Promise((res) => setTimeout(res, wait));
+          continue;
+        }
+      }
+    }
+
+    // Update circuit breaker on failure exhaustion
+    const failures = (circuit.consecutiveFailures || 0) + 1;
+    const shouldOpen =
+      failures >= OIDCProviderAdapter.CIRCUIT_FAILURE_THRESHOLD;
+    const newState: DiscoveryCircuitState = { consecutiveFailures: failures };
+    if (shouldOpen) {
+      newState.openedUntil = Date.now() + OIDCProviderAdapter.CIRCUIT_OPEN_MS;
+    }
+    OIDCProviderAdapter.discoveryCircuit.set(issuer, newState);
+
+    throw this.normalizeError(lastError, {
+      issuer,
+      endpoint: discoveryUrl,
+    });
   }
 
   /**
@@ -400,6 +468,8 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
     this.validateProviderMetadata(this.oidcConfig.metadata);
     this.providerMetadata = this.oidcConfig.metadata;
+
+    // No discovery; client cannot be constructed without Issuer instance
   }
 
   /**
@@ -444,15 +514,20 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * Generate PKCE code verifier and challenge pair
    */
   private generatePKCEPair(): PKCEPair {
-    const codeVerifier = this.generateCodeVerifier();
-    return this.createPKCEPair(codeVerifier);
+    const codeVerifier = generators.codeVerifier();
+    const codeChallenge = generators.codeChallenge(codeVerifier);
+    return {
+      codeVerifier,
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+    };
   }
 
   /**
    * Create PKCE pair from existing code verifier
    */
   private createPKCEPair(codeVerifier: string): PKCEPair {
-    const codeChallenge = this.generateCodeChallenge(codeVerifier);
+    const codeChallenge = generators.codeChallenge(codeVerifier);
     return {
       codeVerifier,
       codeChallenge,
@@ -464,18 +539,14 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * Generate PKCE code verifier
    */
   private generateCodeVerifier(): string {
-    // Generate 32 random bytes and base64url encode
-    const bytes = randomBytes(32);
-    return bytes.toString('base64url');
+    return generators.codeVerifier();
   }
 
   /**
    * Generate PKCE code challenge from verifier
    */
   private generateCodeChallenge(codeVerifier: string): string {
-    const hash = createHash('sha256');
-    hash.update(codeVerifier);
-    return hash.digest('base64url');
+    return generators.codeChallenge(codeVerifier);
   }
 
   /**
@@ -518,9 +589,13 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     try {
       await hook.cleanupExpiredState(Date.now());
     } catch (e) {
-      throw this.normalizeError(e, { endpoint: 'storageHook.cleanupExpiredState' });
+      throw this.normalizeError(e, {
+        endpoint: 'storageHook.cleanupExpiredState',
+      });
     }
   }
+
+  // End class members above
 
   /**
    * Exchange authorization code for access token
