@@ -152,6 +152,55 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
     return this._quirksCallCount;
   }
 
+  /**
+   * Expose enforceProductionStorage for testing
+   */
+  public exposeEnforceProductionStorage<T>(
+    storageHook: T | undefined,
+    hookName: string,
+    mockFallback: () => T
+  ): T {
+    return this.enforceProductionStorage(storageHook, hookName, mockFallback);
+  }
+
+  /**
+   * Expose createStandardError for testing
+   */
+  public exposeCreateStandardError(
+    error: string,
+    description: string,
+    context: { endpoint?: string; stage?: string; issuer?: string }
+  ): OAuthError {
+    return this.createStandardError(error, description, context);
+  }
+
+  /**
+   * Expose executeWithResilience for testing
+   */
+  public async exposeExecuteWithResilience<T>(
+    operation: () => Promise<T>,
+    context: {
+      endpoint: string;
+      maxRetries?: number;
+      backoffMs?: number;
+      circuitKey?: string;
+      failureThreshold?: number;
+      circuitOpenMs?: number;
+    }
+  ): Promise<T> {
+    return this.executeWithResilience(operation, context);
+  }
+
+  /**
+   * Expose setHttpDefaults for testing
+   */
+  public exposeSetHttpDefaults(options: {
+    timeout?: number;
+    [key: string]: unknown;
+  }): void {
+    return this.setHttpDefaults(options);
+  }
+
   // Use the base class memoization by not overriding getProviderQuirks
 }
 
