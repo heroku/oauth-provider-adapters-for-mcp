@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import type { ProviderConfig } from '../types.js';
+import { testConfigs } from '../fixtures/test-data.js';
 import {
   ConfigurableTestAdapter,
   TokenMappingTestAdapter,
@@ -9,12 +10,7 @@ import {
 } from './adapters.js';
 
 describe('Test Adapters', () => {
-  const mockConfig: ProviderConfig = {
-    clientId: 'test-client-id',
-    clientSecret: 'test-client-secret',
-    issuer: 'https://example.com',
-    scopes: ['openid', 'profile'],
-  };
+  const mockConfig: ProviderConfig = testConfigs.valid;
 
   // Base methods all adapters should have
   const baseMethods = [
