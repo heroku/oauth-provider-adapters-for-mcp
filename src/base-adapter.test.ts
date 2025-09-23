@@ -444,4 +444,261 @@ describe('BaseOAuthAdapter', () => {
       }
     });
   });
+
+  describe('createStandardError', () => {
+    it('should create normalized error with standard structure', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const error = adapter.exposeCreateStandardError(
+        'invalid_request',
+        'Test error description',
+        { endpoint: '/test', stage: 'test-stage' }
+      );
+
+      expect(error.error).to.equal('invalid_request');
+      expect(error.error_description).to.equal('Test error description');
+      expect(error.endpoint).to.equal('/test');
+      expect(error.statusCode).to.equal(400);
+      expect(error.issuer).to.equal('https://example.com');
+    });
+
+    it('should handle context with issuer override', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const error = adapter.exposeCreateStandardError(
+        'server_error',
+        'Server error occurred',
+        { issuer: 'https://custom.issuer.com', stage: 'custom-stage' }
+      );
+
+      expect(error.error).to.equal('server_error');
+      expect(error.error_description).to.equal('Server error occurred');
+      expect(error.issuer).to.equal('https://custom.issuer.com');
+    });
+  });
+
+  describe('executeWithResilience', () => {
+    let adapter: ConfigurableTestAdapter;
+
+    beforeEach(() => {
+      adapter = new ConfigurableTestAdapter(mockConfig);
+      // Clear static circuit breaker state before each test
+      (BaseOAuthAdapter as any).circuitBreakers.clear();
+    });
+
+    it('should execute operation successfully on first try', async () => {
+      const successfulOperation = async () => 'success';
+
+      const result = await adapter.exposeExecuteWithResilience(
+        successfulOperation,
+        { endpoint: '/test' }
+      );
+
+      expect(result).to.equal('success');
+    });
+
+    it('should retry operation on failure and succeed', async () => {
+      let attempts = 0;
+      const retryOperation = async () => {
+        attempts++;
+        if (attempts < 3) {
+          throw new Error('Temporary failure');
+        }
+        return 'success after retries';
+      };
+
+      const result = await adapter.exposeExecuteWithResilience(retryOperation, {
+        endpoint: '/test',
+        maxRetries: 3,
+      });
+
+      expect(result).to.equal('success after retries');
+      expect(attempts).to.equal(3);
+    });
+
+    it('should fail after exhausting retries', async () => {
+      let attempts = 0;
+      const failingOperation = async () => {
+        attempts++;
+        throw new Error(`Failure attempt ${attempts}`);
+      };
+
+      try {
+        await adapter.exposeExecuteWithResilience(failingOperation, {
+          endpoint: '/test',
+          maxRetries: 2,
+        });
+        expect.fail('Expected operation to fail');
+      } catch (err) {
+        const e = err as OAuthError;
+        expect(e.endpoint).to.equal('/test');
+        expect(attempts).to.equal(3); // 1 initial + 2 retries
+      }
+    });
+
+    it('should implement exponential backoff between retries', async function () {
+      this.timeout(5000); // Increase timeout for timing test
+
+      let attempts = 0;
+      const timestamps: number[] = [];
+      const failingOperation = async () => {
+        attempts++;
+        timestamps.push(Date.now());
+        throw new Error(`Failure attempt ${attempts}`);
+      };
+
+      try {
+        await adapter.exposeExecuteWithResilience(failingOperation, {
+          endpoint: '/test',
+          maxRetries: 2,
+          backoffMs: 100,
+        });
+      } catch {
+        // Expected to fail
+      }
+
+      expect(attempts).to.equal(3);
+      expect(timestamps).to.have.length(3);
+
+      // Check that delays roughly match exponential backoff (100ms, 200ms)
+      const delay1 = timestamps[1]! - timestamps[0]!;
+      const delay2 = timestamps[2]! - timestamps[1]!;
+
+      expect(delay1).to.be.at.least(90); // Allow some timing variance
+      expect(delay1).to.be.at.most(150);
+      expect(delay2).to.be.at.least(180);
+      expect(delay2).to.be.at.most(250);
+    });
+
+    it('should open circuit breaker after failure threshold', async () => {
+      const failingOperation = async () => {
+        throw new Error('Persistent failure');
+      };
+
+      // Fail enough times to trigger circuit breaker
+      for (let i = 0; i < 3; i++) {
+        try {
+          await adapter.exposeExecuteWithResilience(failingOperation, {
+            endpoint: '/test',
+            maxRetries: 0,
+            failureThreshold: 3,
+          });
+        } catch {
+          // Expected failures
+        }
+      }
+
+      // Next call should fail immediately due to open circuit
+      try {
+        await adapter.exposeExecuteWithResilience(failingOperation, {
+          endpoint: '/test',
+          maxRetries: 0,
+          failureThreshold: 3,
+        });
+        expect.fail('Expected circuit breaker to be open');
+      } catch (err) {
+        const e = err as OAuthError;
+        expect(e.error).to.equal('temporarily_unavailable');
+        expect(e.error_description).to.include('Circuit breaker is open');
+      }
+    });
+
+    it('should reset circuit breaker on successful operation', async () => {
+      const callCount = { failures: 0, success: 0 };
+      const conditionalOperation = async () => {
+        if (callCount.failures < 2) {
+          callCount.failures++;
+          throw new Error('Initial failure');
+        }
+        callCount.success++;
+        return 'success';
+      };
+
+      // First call fails, then succeeds
+      const result = await adapter.exposeExecuteWithResilience(
+        conditionalOperation,
+        { endpoint: '/test', maxRetries: 3 }
+      );
+
+      expect(result).to.equal('success');
+      expect(callCount.failures).to.equal(2);
+      expect(callCount.success).to.equal(1);
+
+      // Circuit should be reset, so another operation should work
+      const result2 = await adapter.exposeExecuteWithResilience(
+        async () => 'success2',
+        { endpoint: '/test' }
+      );
+
+      expect(result2).to.equal('success2');
+    });
+
+    it('should use custom circuit key for isolation', async () => {
+      const failingOperation = async () => {
+        throw new Error('Failure');
+      };
+
+      // Fail on circuit key 'A'
+      for (let i = 0; i < 3; i++) {
+        try {
+          await adapter.exposeExecuteWithResilience(failingOperation, {
+            endpoint: '/test',
+            circuitKey: 'circuitA',
+            maxRetries: 0,
+            failureThreshold: 3,
+          });
+        } catch {
+          // Expected
+        }
+      }
+
+      // Circuit 'A' should be open
+      try {
+        await adapter.exposeExecuteWithResilience(failingOperation, {
+          endpoint: '/test',
+          circuitKey: 'circuitA',
+          maxRetries: 0,
+        });
+        expect.fail('Expected circuit A to be open');
+      } catch (err) {
+        const e = err as OAuthError;
+        expect(e.error).to.equal('temporarily_unavailable');
+      }
+
+      // But circuit 'B' should still work
+      const result = await adapter.exposeExecuteWithResilience(
+        async () => 'success',
+        {
+          endpoint: '/test',
+          circuitKey: 'circuitB',
+          maxRetries: 0,
+        }
+      );
+
+      expect(result).to.equal('success');
+    });
+  });
+
+  describe('setHttpDefaults', () => {
+    it('should log HTTP defaults configuration', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      // This is a placeholder method in base adapter, so we just verify it doesn't throw
+      expect(() => {
+        adapter.exposeSetHttpDefaults({ timeout: 5000 });
+      }).to.not.throw();
+    });
+
+    it('should handle various HTTP options', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(() => {
+        adapter.exposeSetHttpDefaults({
+          timeout: 8000,
+          retries: 3,
+          headers: { 'User-Agent': 'test' },
+        });
+      }).to.not.throw();
+    });
+  });
 });
