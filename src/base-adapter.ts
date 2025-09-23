@@ -225,4 +225,38 @@ export abstract class BaseOAuthAdapter {
   ): OAuthError {
     return ErrorNormalizer.normalizeError(e, context, this.config.issuer);
   }
+
+  /**
+   * Enforce production storage safety by preventing unsafe fallbacks to in-memory storage.
+   * This generic method can be used by any adapter that needs persistent storage.
+   *
+   * @param storageHook - The storage hook implementation (or undefined)
+   * @param hookName - Name of the hook for error/logging messages
+   * @param mockFallback - Function to create mock storage for development
+   * @returns The storage hook to use
+   * @throws {OAuthError} If no storage hook is provided in production
+   */
+  protected enforceProductionStorage<T>(
+    storageHook: T | undefined,
+    hookName: string,
+    mockFallback: () => T
+  ): T {
+    if (!storageHook) {
+      if (process.env.NODE_ENV === 'production') {
+        throw this.normalizeError(
+          new Error(
+            `Persistent ${hookName} is required in production; in-memory storage is not allowed`
+          ),
+          { endpoint: 'initialize' }
+        );
+      }
+      this.logger.warn(
+        `No ${hookName} provided; using in-memory mock storage (not for production)`,
+        { stage: 'initialize' }
+      );
+      return mockFallback();
+    }
+    return storageHook;
+  }
+
 }

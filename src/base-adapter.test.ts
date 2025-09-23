@@ -372,4 +372,76 @@ describe('BaseOAuthAdapter', () => {
       expect(quirks.customParameters).to.have.members(['audience', 'prompt']);
     });
   });
+
+  describe('enforceProductionStorage', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('should use provided storage hook when available', () => {
+      const mockStorage = { test: 'storage' };
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const result = adapter.exposeEnforceProductionStorage(
+        mockStorage,
+        'testHook',
+        () => ({ test: 'fallback' })
+      );
+
+      expect(result).to.equal(mockStorage);
+    });
+
+    it('should use fallback storage in development when no storage provided', () => {
+      process.env.NODE_ENV = 'development';
+      const fallbackStorage = { fallback: 'storage' };
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const result = adapter.exposeEnforceProductionStorage(
+        undefined,
+        'testHook',
+        () => fallbackStorage
+      );
+
+      expect(result).to.equal(fallbackStorage);
+    });
+
+    it('should use fallback storage when NODE_ENV is not production', () => {
+      process.env.NODE_ENV = 'test';
+      const fallbackStorage = { fallback: 'storage' };
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const result = adapter.exposeEnforceProductionStorage(
+        undefined,
+        'testHook',
+        () => fallbackStorage
+      );
+
+      expect(result).to.equal(fallbackStorage);
+    });
+
+    it('should throw error in production when no storage provided', () => {
+      process.env.NODE_ENV = 'production';
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(() => {
+        adapter.exposeEnforceProductionStorage(undefined, 'testHook', () => ({
+          fallback: 'storage',
+        }));
+      }).to.throw();
+
+      try {
+        adapter.exposeEnforceProductionStorage(undefined, 'testHook', () => ({
+          fallback: 'storage',
+        }));
+      } catch (err) {
+        const e = err as OAuthError;
+        expect(e.error_description).to.include(
+          'Persistent testHook is required in production'
+        );
+        expect(e.endpoint).to.equal('initialize');
+      }
+    });
+  });
 });
