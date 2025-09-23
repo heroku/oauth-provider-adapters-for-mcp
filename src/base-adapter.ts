@@ -5,6 +5,10 @@ import type {
   ProviderQuirks,
 } from './types.js';
 import { ErrorNormalizer } from './utils/error-normalizer.js';
+import {
+  ResilienceManager,
+  type ResilienceContext,
+} from './utils/resilience-manager.js';
 import { Logger } from './logging/types.js';
 import { DefaultLogger } from './logging/logger.js';
 
@@ -27,14 +31,6 @@ const MCP_OAUTH_REDACTION_PATHS = [
   'metadata.client_secret',
   'config.clientSecret',
 ];
-
-/**
- * Circuit breaker state for tracking endpoint failures
- */
-type CircuitBreakerState = {
-  consecutiveFailures: number;
-  openedUntil?: number;
-};
 
 /**
  * Abstract base class that all OAuth provider adapters must implement.
@@ -61,19 +57,6 @@ export abstract class BaseOAuthAdapter {
    * Stores our lazily instantiated implementation of Logger.
    */
   private loggerImpl?: Logger;
-
-  /**
-   * Static circuit breaker state tracking per endpoint to prevent cascading failures
-   */
-  private static circuitBreakers: Map<string, CircuitBreakerState> = new Map();
-
-  /**
-   * Default resilience configuration
-   */
-  private static readonly DEFAULT_MAX_RETRIES = 2;
-  private static readonly DEFAULT_BACKOFF_MS = 300;
-  private static readonly DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 3;
-  private static readonly DEFAULT_CIRCUIT_OPEN_MS = 60_000; // 60s
 
   /**
    * Creates a new BaseOAuthAdapter instance
@@ -311,69 +294,13 @@ export abstract class BaseOAuthAdapter {
    */
   protected async executeWithResilience<T>(
     operation: () => Promise<T>,
-    context: {
-      endpoint: string;
-      maxRetries?: number;
-      backoffMs?: number;
-      circuitKey?: string;
-      failureThreshold?: number;
-      circuitOpenMs?: number;
-    }
+    context: ResilienceContext
   ): Promise<T> {
-    const {
-      endpoint,
-      maxRetries = BaseOAuthAdapter.DEFAULT_MAX_RETRIES,
-      backoffMs = BaseOAuthAdapter.DEFAULT_BACKOFF_MS,
-      circuitKey = endpoint,
-      failureThreshold = BaseOAuthAdapter.DEFAULT_CIRCUIT_FAILURE_THRESHOLD,
-      circuitOpenMs = BaseOAuthAdapter.DEFAULT_CIRCUIT_OPEN_MS,
-    } = context;
-
-    // Circuit breaker: check if circuit is open
-    const circuit = BaseOAuthAdapter.circuitBreakers.get(circuitKey) || {
-      consecutiveFailures: 0,
-    };
-    if (circuit.openedUntil && Date.now() < circuit.openedUntil) {
-      throw this.createStandardError(
-        'temporarily_unavailable',
-        'Circuit breaker is open due to recent failures. Try again later.',
-        { endpoint }
-      );
-    }
-
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const result = await operation();
-
-        // Reset circuit breaker on success
-        BaseOAuthAdapter.circuitBreakers.set(circuitKey, {
-          consecutiveFailures: 0,
-        });
-
-        return result;
-      } catch (e) {
-        lastError = e;
-
-        // Exponential backoff before retry, except after last attempt
-        if (attempt < maxRetries) {
-          const wait = backoffMs * Math.pow(2, attempt);
-          await new Promise((resolve) => setTimeout(resolve, wait));
-          continue;
-        }
-      }
-    }
-
-    // Update circuit breaker on failure exhaustion
-    const failures = (circuit.consecutiveFailures || 0) + 1;
-    const shouldOpen = failures >= failureThreshold;
-    const newState: CircuitBreakerState = { consecutiveFailures: failures };
-    if (shouldOpen) {
-      newState.openedUntil = Date.now() + circuitOpenMs;
-    }
-    BaseOAuthAdapter.circuitBreakers.set(circuitKey, newState);
-
-    throw this.normalizeError(lastError, { endpoint });
+    return ResilienceManager.executeWithResilience(
+      operation,
+      context,
+      (error, errorContext) => this.normalizeError(error, errorContext)
+    );
   }
 
   /**
