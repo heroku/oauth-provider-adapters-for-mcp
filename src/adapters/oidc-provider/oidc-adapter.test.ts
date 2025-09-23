@@ -67,6 +67,64 @@ describe('OIDCProviderAdapter', function () {
         expect(err.error).to.equal('invalid_request');
       }
     });
+
+    it('should throw error when scopes are missing or empty', async function () {
+      const config = {
+        clientId: testConfigs.valid.clientId,
+        scopes: [],
+        metadata: oidcMetadata.minimal,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include('scopes are required');
+      }
+    });
+
+    it('should throw error when neither issuer nor metadata is provided', async function () {
+      const config = {
+        clientId: testConfigs.valid.clientId,
+        scopes: ['openid'],
+      };
+
+      const adapter = new OIDCProviderAdapter(config as any);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include(
+          'Either issuer or metadata must be provided'
+        );
+      }
+    });
+
+    it('should throw error when both issuer and metadata are provided', async function () {
+      const config = {
+        clientId: testConfigs.valid.clientId,
+        scopes: ['openid'],
+        issuer: 'https://auth.example.com',
+        metadata: oidcMetadata.minimal,
+      };
+
+      const adapter = new OIDCProviderAdapter(config as any);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include(
+          'Cannot specify both issuer and metadata'
+        );
+      }
+    });
   });
 
   describe('authorization URL generation', function () {
