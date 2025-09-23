@@ -4,7 +4,6 @@
  */
 
 import { BaseOAuthAdapter } from '../../base-adapter.js';
-import type { OAuthError } from '../../types.js';
 import type {
   OIDCProviderConfig,
   OIDCProviderMetadata,
