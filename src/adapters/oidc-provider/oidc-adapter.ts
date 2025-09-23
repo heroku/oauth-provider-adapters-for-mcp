@@ -113,23 +113,11 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   public constructor(config: OIDCProviderConfig) {
     super(config);
     this.oidcConfig = config;
-    if (!config.storageHook) {
-      // Prevent unsafe fallback in production
-      if (process.env.NODE_ENV === 'production') {
-        throw this.createError(
-          'invalid_request',
-          'Persistent storageHook is required in production; in-memory storage is not allowed',
-          { stage: 'initialize' }
-        );
-      }
-      this.logger.warn(
-        'No storageHook provided; using in-memory mock storage (not for production)',
-        { stage: 'initialize' }
-      );
-      this.storageHook = new MockPKCEStorageHook();
-    } else {
-      this.storageHook = config.storageHook;
-    }
+    this.storageHook = this.enforceProductionStorage(
+      config.storageHook,
+      'storageHook',
+      () => new MockPKCEStorageHook()
+    );
     this.pkceStateExpirationSeconds = config.pkceStateExpirationSeconds || 600; // 10 minutes default
   }
 
