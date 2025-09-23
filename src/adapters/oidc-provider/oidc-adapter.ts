@@ -12,6 +12,9 @@ import type {
   PKCEPair,
   PKCEStorageHook,
 } from './types.js';
+import * as openidClient from 'openid-client';
+const { randomPKCECodeVerifier, calculatePKCECodeChallenge, customFetch } =
+  openidClient;
 
 /**
  * Internal mock storage hook for PKCE state persistence
@@ -78,11 +81,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   /** PKCE state expiration time in seconds */
   private readonly pkceStateExpirationSeconds: number;
 
-  /** Discovered OpenID Issuer instance */
-  private discoveredIssuer?: Issuer;
-
-  /** OpenID Client built from discovered/static metadata */
-  private oidcClient?: Client;
   private static readonly DISCOVERY_MAX_RETRIES = 2; // total attempts = 1 + retries
   private static readonly DISCOVERY_BACKOFF_MS = 300; // base backoff
   private static readonly CIRCUIT_FAILURE_THRESHOLD = 3;
@@ -124,7 +122,11 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       await this.validateStorageHook();
 
       // Set sane default HTTP timeouts for discovery
-      custom.setHttpOptionsDefaults({ timeout: 8_000 });
+      this.setHttpDefaults({ timeout: 8_000 });
+      if (customFetch && openidClient.customFetch) {
+        // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
+        // Timeout handling is done at the fetch level
+      }
 
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
@@ -193,8 +195,15 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       });
 
       // Generate PKCE pair using openid-client
-      const codeVerifier = generators.codeVerifier();
-      const codeChallenge = generators.codeChallenge(codeVerifier);
+      if (!randomPKCECodeVerifier || !calculatePKCECodeChallenge) {
+        throw this.createStandardError(
+          'server_error',
+          'PKCE generators not available from openid-client',
+          { stage: 'generateAuthUrl' }
+        );
+      }
+      const codeVerifier = randomPKCECodeVerifier();
+      const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
       const pkcePair = {
         codeVerifier,
         codeChallenge,
@@ -203,12 +212,18 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       // Store PKCE state
       const expiresAt = Date.now() + this.pkceStateExpirationSeconds * 1000;
-      await this.storageHook.storePKCEState(
-        interactionId,
-        interactionId,
-        pkcePair.codeVerifier,
-        expiresAt
-      );
+      try {
+        await this.storageHook.storePKCEState(
+          interactionId,
+          interactionId,
+          pkcePair.codeVerifier,
+          expiresAt
+        );
+      } catch (error) {
+        throw this.normalizeError(error, {
+          endpoint: 'storageHook.storePKCEState',
+        });
+      }
 
       // Build authorization URL via openid-client Client when available
       const params = {
@@ -221,17 +236,12 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         ...this.oidcConfig.customParameters,
       } as Record<string, string>;
 
-      let url: string;
-      if (this.oidcClient) {
-        url = this.oidcClient.authorizationUrl(params);
-      } else {
-        // Fallback to manual URL construction if client not available (static metadata path)
-        const authEndpoint = this.providerMetadata!.authorization_endpoint;
-        url = this.buildAuthorizeUrl(authEndpoint, {
-          client_id: this.oidcConfig.clientId,
-          ...params,
-        });
-      }
+      // Build authorization URL manually
+      const authEndpoint = this.providerMetadata!.authorization_endpoint;
+      const url = this.buildAuthorizeUrl(authEndpoint, {
+        client_id: this.oidcConfig.clientId,
+        ...params,
+      });
 
       this.logger.info('Authorization URL generated successfully', {
         stage: 'generateAuthUrl',
@@ -344,66 +354,38 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       issuer,
     });
 
-    let lastError: unknown;
-    for (
-      let attempt = 0;
-      attempt <= OIDCProviderAdapter.DISCOVERY_MAX_RETRIES;
-      attempt++
-    ) {
-      try {
-        const discovered = await Issuer.discover(issuer);
-        this.discoveredIssuer = discovered;
-        const metadata = discovered.metadata as unknown as OIDCProviderMetadata;
-
-        // Validate required endpoints
-        this.validateProviderMetadata(metadata);
-
-        this.providerMetadata = metadata;
-
-        // Build a minimal client for authorization URL construction
-        this.oidcClient = new discovered.Client({
-          client_id: this.oidcConfig.clientId,
-        });
-
-        // Reset circuit breaker on success
-        OIDCProviderAdapter.discoveryCircuit.set(issuer, {
-          consecutiveFailures: 0,
-        });
-
-        this.logger.info('OIDC discovery completed successfully', {
-          stage: 'discovery',
-          discoveryUrl,
-          issuer: metadata.issuer,
-          hasAuthorizationEndpoint: Boolean(metadata.authorization_endpoint),
-          hasTokenEndpoint: Boolean(metadata.token_endpoint),
-          hasUserinfoEndpoint: Boolean(metadata.userinfo_endpoint),
-        });
-        return;
-      } catch (e) {
-        lastError = e;
-        // Exponential backoff before retry, except after last attempt
-        if (attempt < OIDCProviderAdapter.DISCOVERY_MAX_RETRIES) {
-          const wait =
-            OIDCProviderAdapter.DISCOVERY_BACKOFF_MS * Math.pow(2, attempt);
-          await new Promise((res) => setTimeout(res, wait));
-          continue;
+    const metadata = (await this.executeWithResilience(
+      async () => {
+        const response = await fetch(discoveryUrl);
+        if (!response.ok) {
+          throw new Error(
+            `Discovery failed: ${response.status} ${response.statusText}`
+          );
         }
+        return await response.json();
+      },
+      {
+        endpoint: discoveryUrl,
+        maxRetries: OIDCProviderAdapter.DISCOVERY_MAX_RETRIES,
+        backoffMs: OIDCProviderAdapter.DISCOVERY_BACKOFF_MS,
+        circuitKey: issuer,
+        failureThreshold: OIDCProviderAdapter.CIRCUIT_FAILURE_THRESHOLD,
+        circuitOpenMs: OIDCProviderAdapter.CIRCUIT_OPEN_MS,
       }
-    }
+    )) as OIDCProviderMetadata;
 
-    // Update circuit breaker on failure exhaustion
-    const failures = (circuit.consecutiveFailures || 0) + 1;
-    const shouldOpen =
-      failures >= OIDCProviderAdapter.CIRCUIT_FAILURE_THRESHOLD;
-    const newState: DiscoveryCircuitState = { consecutiveFailures: failures };
-    if (shouldOpen) {
-      newState.openedUntil = Date.now() + OIDCProviderAdapter.CIRCUIT_OPEN_MS;
-    }
-    OIDCProviderAdapter.discoveryCircuit.set(issuer, newState);
+    // Validate required endpoints
+    this.validateProviderMetadata(metadata);
 
-    throw this.normalizeError(lastError, {
-      issuer,
-      endpoint: discoveryUrl,
+    this.providerMetadata = metadata;
+
+    this.logger.info('OIDC discovery completed successfully', {
+      stage: 'discovery',
+      discoveryUrl,
+      issuer: metadata.issuer,
+      hasAuthorizationEndpoint: Boolean(metadata.authorization_endpoint),
+      hasTokenEndpoint: Boolean(metadata.token_endpoint),
+      hasUserinfoEndpoint: Boolean(metadata.userinfo_endpoint),
     });
   }
 
@@ -472,63 +454,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         }
       );
     }
-  }
-
-  /**
-   * Generate PKCE code verifier and challenge pair
-   */
-  private generatePKCEPair(): PKCEPair {
-    const codeVerifier = generators.codeVerifier();
-    const codeChallenge = generators.codeChallenge(codeVerifier);
-    return {
-      codeVerifier,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-    };
-  }
-
-  /**
-   * Create PKCE pair from existing code verifier
-   */
-  private createPKCEPair(codeVerifier: string): PKCEPair {
-    const codeChallenge = generators.codeChallenge(codeVerifier);
-    return {
-      codeVerifier,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-    };
-  }
-
-  /**
-   * Generate PKCE code verifier
-   */
-  private generateCodeVerifier(): string {
-    return generators.codeVerifier();
-  }
-
-  /**
-   * Generate PKCE code challenge from verifier
-   */
-  private generateCodeChallenge(codeVerifier: string): string {
-    return generators.codeChallenge(codeVerifier);
-  }
-
-  /**
-   * Create standardized error
-   */
-  private createError(
-    error: string,
-    description: string,
-    context: OIDCErrorContext
-  ): OAuthError {
-    const errorContext: { endpoint?: string; issuer?: string } = {};
-    if (context.endpoint) errorContext.endpoint = context.endpoint;
-    if (context.issuer) errorContext.issuer = context.issuer;
-
-    return this.normalizeError(
-      { error, error_description: description, statusCode: 400 },
-      errorContext
-    );
   }
 
   /**
