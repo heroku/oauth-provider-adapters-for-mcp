@@ -129,7 +129,6 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
     return this.normalizeError(e, context);
   }
 
-
   /**
    * Expose enforceProductionStorage for testing
    */
