@@ -437,7 +437,7 @@ describe('OIDCProviderAdapter', function () {
       expect(authUrl).to.include('not-a-valid-url');
     });
 
-    it('should handle storage hook errors', async function () {
+    it('should handle storage hook errors during URL generation', async function () {
       const failingStorageHook = {
         storePKCEPair: sinon.stub().rejects(new Error('Storage error')),
         retrievePKCEPair: sinon.stub().resolves(null),
@@ -462,7 +462,7 @@ describe('OIDCProviderAdapter', function () {
         );
         expect.fail('Expected to throw');
       } catch (err: any) {
-        expect(err.message).to.equal('Storage error');
+        expect(err.error_description).to.equal('Storage error');
       }
     });
   });
