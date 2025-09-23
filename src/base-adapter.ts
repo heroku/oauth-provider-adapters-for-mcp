@@ -29,6 +29,14 @@ const MCP_OAUTH_REDACTION_PATHS = [
 ];
 
 /**
+ * Circuit breaker state for tracking endpoint failures
+ */
+type CircuitBreakerState = {
+  consecutiveFailures: number;
+  openedUntil?: number;
+};
+
+/**
  * Abstract base class that all OAuth provider adapters must implement.
  * Establishes the core contract for initialization, authorization URL generation,
  * token exchange, and refresh.
@@ -53,6 +61,19 @@ export abstract class BaseOAuthAdapter {
    * Stores our lazily instantiated implementation of Logger.
    */
   private loggerImpl?: Logger;
+
+  /**
+   * Static circuit breaker state tracking per endpoint to prevent cascading failures
+   */
+  private static circuitBreakers: Map<string, CircuitBreakerState> = new Map();
+
+  /**
+   * Default resilience configuration
+   */
+  private static readonly DEFAULT_MAX_RETRIES = 2;
+  private static readonly DEFAULT_BACKOFF_MS = 300;
+  private static readonly DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 3;
+  private static readonly DEFAULT_CIRCUIT_OPEN_MS = 60_000; // 60s
 
   /**
    * Creates a new BaseOAuthAdapter instance
@@ -259,4 +280,114 @@ export abstract class BaseOAuthAdapter {
     return storageHook;
   }
 
+  /**
+   * Create a standardized OAuth error with consistent structure.
+   * Helper method for subclasses to create well-formed errors.
+   *
+   * @param error - OAuth error code
+   * @param description - Human-readable error description
+   * @param context - Additional context like stage, endpoint, issuer
+   * @returns Normalized OAuthError
+   */
+  protected createStandardError(
+    error: string,
+    description: string,
+    context: { endpoint?: string; stage?: string; issuer?: string }
+  ): OAuthError {
+    return this.normalizeError(
+      { error, error_description: description, statusCode: 400 },
+      context
+    );
+  }
+
+  /**
+   * Execute an operation with resilience patterns: retry with exponential backoff and circuit breaker.
+   * This method provides consistent error handling and reliability for OAuth provider endpoint calls.
+   *
+   * @param operation - The async operation to execute
+   * @param context - Context for the operation including endpoint and resilience configuration
+   * @returns The result of the operation
+   * @throws {OAuthError} If operation fails after retries or circuit is open
+   */
+  protected async executeWithResilience<T>(
+    operation: () => Promise<T>,
+    context: {
+      endpoint: string;
+      maxRetries?: number;
+      backoffMs?: number;
+      circuitKey?: string;
+      failureThreshold?: number;
+      circuitOpenMs?: number;
+    }
+  ): Promise<T> {
+    const {
+      endpoint,
+      maxRetries = BaseOAuthAdapter.DEFAULT_MAX_RETRIES,
+      backoffMs = BaseOAuthAdapter.DEFAULT_BACKOFF_MS,
+      circuitKey = endpoint,
+      failureThreshold = BaseOAuthAdapter.DEFAULT_CIRCUIT_FAILURE_THRESHOLD,
+      circuitOpenMs = BaseOAuthAdapter.DEFAULT_CIRCUIT_OPEN_MS,
+    } = context;
+
+    // Circuit breaker: check if circuit is open
+    const circuit = BaseOAuthAdapter.circuitBreakers.get(circuitKey) || {
+      consecutiveFailures: 0,
+    };
+    if (circuit.openedUntil && Date.now() < circuit.openedUntil) {
+      throw this.createStandardError(
+        'temporarily_unavailable',
+        'Circuit breaker is open due to recent failures. Try again later.',
+        { endpoint }
+      );
+    }
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await operation();
+
+        // Reset circuit breaker on success
+        BaseOAuthAdapter.circuitBreakers.set(circuitKey, {
+          consecutiveFailures: 0,
+        });
+
+        return result;
+      } catch (e) {
+        lastError = e;
+
+        // Exponential backoff before retry, except after last attempt
+        if (attempt < maxRetries) {
+          const wait = backoffMs * Math.pow(2, attempt);
+          await new Promise((resolve) => setTimeout(resolve, wait));
+          continue;
+        }
+      }
+    }
+
+    // Update circuit breaker on failure exhaustion
+    const failures = (circuit.consecutiveFailures || 0) + 1;
+    const shouldOpen = failures >= failureThreshold;
+    const newState: CircuitBreakerState = { consecutiveFailures: failures };
+    if (shouldOpen) {
+      newState.openedUntil = Date.now() + circuitOpenMs;
+    }
+    BaseOAuthAdapter.circuitBreakers.set(circuitKey, newState);
+
+    throw this.normalizeError(lastError, { endpoint });
+  }
+
+  /**
+   * Set HTTP defaults for network operations.
+   * This method can be called by subclasses to configure timeouts and other HTTP settings.
+   *
+   * @param options - HTTP configuration options
+   */
+  protected setHttpDefaults(options: {
+    timeout?: number;
+    [key: string]: unknown;
+  }): void {
+    // This is a placeholder - subclasses should override this if they need to set HTTP defaults
+    // For example, OIDC adapter uses openid-client's custom.setHttpOptionsDefaults()
+    this.logger.debug('HTTP defaults set', { options, stage: 'http-config' });
+  }
 }
