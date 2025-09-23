@@ -9,8 +9,5 @@ export type {
   OIDCProviderCapabilities,
   OIDCAuthUrlOptions,
   OIDCAuthUrlResult,
-  OIDCErrorContext,
-  OIDCError,
-  PKCEPair,
   PKCEStorageHook,
 } from './types.js';
