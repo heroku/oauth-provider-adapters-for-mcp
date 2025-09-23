@@ -5,6 +5,7 @@ import {
   TokenMappingTestAdapter,
   ErrorThrowingTestAdapter,
   RefreshTokenTestAdapter,
+  MemoizationTestAdapter,
 } from './adapters.js';
 
 describe('Test Adapters', () => {
@@ -30,6 +31,7 @@ describe('Test Adapters', () => {
     ErrorThrowingTestAdapter: ['exposeNormalizeError'],
     TokenMappingTestAdapter: [],
     RefreshTokenTestAdapter: [],
+    MemoizationTestAdapter: ['getCallCount'],
   };
 
   const testCases = [
@@ -40,6 +42,7 @@ describe('Test Adapters', () => {
       AdapterClass: ErrorThrowingTestAdapter,
     },
     { name: 'RefreshTokenTestAdapter', AdapterClass: RefreshTokenTestAdapter },
+    { name: 'MemoizationTestAdapter', AdapterClass: MemoizationTestAdapter },
   ];
 
   testCases.forEach(({ name, AdapterClass }) => {
