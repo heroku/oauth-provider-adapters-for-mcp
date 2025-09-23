@@ -41,18 +41,6 @@ export interface OIDCProviderMetadata {
 }
 
 /**
- * PKCE code verifier and challenge pair
- */
-export interface PKCEPair {
-  /** Code verifier for PKCE */
-  codeVerifier: string;
-  /** Code challenge (base64url encoded SHA256 hash) */
-  codeChallenge: string;
-  /** Challenge method (always 'S256' for this implementation) */
-  codeChallengeMethod: 'S256';
-}
-
-/**
  * Storage hook interface for persisting PKCE state
  */
 export interface PKCEStorageHook {
@@ -164,39 +152,4 @@ export interface OIDCAuthUrlResult {
   codeChallenge: string;
   /** Challenge method used */
   codeChallengeMethod: 'S256';
-}
-
-/**
- * OIDC Provider Adapter error context
- */
-export interface OIDCErrorContext {
-  /** Operation stage where error occurred */
-  stage:
-    | 'initialize'
-    | 'discovery'
-    | 'generateAuthUrl'
-    | 'exchangeCode'
-    | 'refreshToken';
-  /** OIDC issuer identifier */
-  issuer?: string | undefined;
-  /** Discovery URL used (if applicable) */
-  discoveryUrl?: string | undefined;
-  /** Endpoint where error occurred */
-  endpoint?: string | undefined;
-  /** Additional context */
-  [key: string]: unknown;
-}
-
-/**
- * OIDC Provider Adapter specific error
- */
-export interface OIDCError {
-  /** HTTP status code */
-  statusCode: number;
-  /** OAuth error code */
-  error: string;
-  /** Human-readable error description */
-  error_description?: string;
-  /** Error context */
-  context: OIDCErrorContext;
 }

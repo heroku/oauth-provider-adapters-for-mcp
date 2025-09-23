@@ -8,8 +8,6 @@ import type { OAuthError } from '../../types.js';
 import type {
   OIDCProviderConfig,
   OIDCProviderMetadata,
-  OIDCErrorContext,
-  PKCEPair,
   PKCEStorageHook,
 } from './types.js';
 import * as openidClient from 'openid-client';
