@@ -14,6 +14,8 @@ export type ProviderConfig = {
   scopes: string[];
   /** Additional custom parameters to include in authorization requests */
   customParameters?: Record<string, string>;
+  /** Additional parameters to include in authorization requests (alias for customParameters) */
+  additionalParameters?: Record<string, string>;
   /** Default redirect URI (optional; can be provided per call if not set) */
   redirectUri?: string;
 };

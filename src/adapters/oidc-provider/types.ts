@@ -92,10 +92,17 @@ export interface PKCEStorageHook {
  * OIDC Provider Adapter configuration extending base ProviderConfig
  */
 export interface OIDCProviderConfig extends ProviderConfig {
-  /** OIDC issuer URL for discovery (exactly one of issuer or metadata must be provided) */
+  /** OIDC issuer URL for discovery (exactly one of issuer or serverMetadata must be provided) */
   issuer?: string;
-  /** Static OIDC provider metadata (exactly one of issuer or metadata must be provided) */
-  metadata?: OIDCProviderMetadata;
+  /** Static OIDC provider metadata (exactly one of issuer or serverMetadata must be provided) */
+  serverMetadata?: OIDCProviderMetadata;
+  /** Additional parameters to include in authorization requests */
+  additionalParameters?: Record<string, string>;
+  /** Timeout configuration */
+  timeouts?: {
+    connect?: number;
+    response?: number;
+  };
   /** PKCE storage hook for state persistence (optional - uses mock fallback if not provided) */
   storageHook?: PKCEStorageHook;
   /** PKCE state expiration time in seconds (default: 600 = 10 minutes) */

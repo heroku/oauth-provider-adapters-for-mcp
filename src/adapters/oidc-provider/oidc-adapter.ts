@@ -4,7 +4,7 @@
  */
 
 import { BaseOAuthAdapter } from '../../base-adapter.js';
-import type { OAuthError } from '../../types.js';
+import type { OAuthError, ProviderConfig } from '../../types.js';
 import type {
   OIDCProviderConfig,
   OIDCProviderMetadata,
@@ -12,6 +12,7 @@ import type {
   PKCEPair,
   PKCEStorageHook,
 } from './types.js';
+import { validate as validateConfig } from './config.js';
 import { createHash, randomBytes } from 'crypto';
 
 /**
@@ -86,10 +87,25 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @param config - OIDC provider configuration
    */
   public constructor(config: OIDCProviderConfig) {
-    super(config);
-    this.oidcConfig = config;
-    this.storageHook = config.storageHook || new MockPKCEStorageHook();
-    this.pkceStateExpirationSeconds = config.pkceStateExpirationSeconds || 600; // 10 minutes default
+    // Validate configuration using Zod schema
+    const validatedConfig = validateConfig(config);
+
+    // Convert to base ProviderConfig format for compatibility
+    const baseConfig = {
+      clientId: validatedConfig.clientId,
+      clientSecret: validatedConfig.clientSecret,
+      scopes: validatedConfig.scopes,
+      customParameters: validatedConfig.additionalParameters as
+        | Record<string, string>
+        | undefined,
+      redirectUri: validatedConfig.redirectUri,
+    } as ProviderConfig;
+
+    super(baseConfig);
+    this.oidcConfig = validatedConfig as OIDCProviderConfig;
+    this.storageHook = validatedConfig.storageHook || new MockPKCEStorageHook();
+    this.pkceStateExpirationSeconds =
+      validatedConfig.pkceStateExpirationSeconds || 600; // 10 minutes default
   }
 
   /**
@@ -101,16 +117,15 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       this.logger.info('Starting OIDC provider initialization', {
         stage: 'initialize',
         hasIssuer: Boolean(this.oidcConfig.issuer),
-        hasMetadata: Boolean(this.oidcConfig.metadata),
+        hasMetadata: Boolean(this.oidcConfig.serverMetadata),
       });
 
-      // Validate configuration
-      this.validateConfiguration();
+      // Configuration is already validated in constructor
 
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
         await this.performDiscovery();
-      } else if (this.oidcConfig.metadata) {
+      } else if (this.oidcConfig.serverMetadata) {
         this.useStaticMetadata();
       } else {
         throw this.createError(
@@ -195,7 +210,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         state: interactionId,
         code_challenge: pkcePair.codeChallenge,
         code_challenge_method: pkcePair.codeChallengeMethod,
-        ...this.oidcConfig.customParameters,
+        ...this.oidcConfig.additionalParameters,
       };
 
       const url = this.buildAuthorizeUrl(authEndpoint, params);
@@ -246,43 +261,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   }
 
   // === Private Methods ===
-
-  /**
-   * Validate OIDC provider configuration
-   */
-  private validateConfiguration(): void {
-    if (!this.oidcConfig.clientId) {
-      throw this.createError('invalid_request', 'clientId is required', {
-        stage: 'initialize',
-      });
-    }
-
-    if (!this.oidcConfig.scopes || this.oidcConfig.scopes.length === 0) {
-      throw this.createError('invalid_request', 'scopes are required', {
-        stage: 'initialize',
-      });
-    }
-
-    if (!this.oidcConfig.issuer && !this.oidcConfig.metadata) {
-      throw this.createError(
-        'invalid_request',
-        'Either issuer or metadata must be provided',
-        {
-          stage: 'initialize',
-        }
-      );
-    }
-
-    if (this.oidcConfig.issuer && this.oidcConfig.metadata) {
-      throw this.createError(
-        'invalid_request',
-        'Cannot specify both issuer and metadata',
-        {
-          stage: 'initialize',
-        }
-      );
-    }
-  }
 
   /**
    * Perform OIDC discovery
@@ -360,7 +338,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * Use static provider metadata
    */
   private useStaticMetadata(): void {
-    if (!this.oidcConfig.metadata) {
+    if (!this.oidcConfig.serverMetadata) {
       throw this.createError(
         'invalid_request',
         'Static metadata not provided',
@@ -372,15 +350,15 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
     this.logger.info('Using static OIDC provider metadata', {
       stage: 'initialize',
-      issuer: this.oidcConfig.metadata.issuer,
+      issuer: this.oidcConfig.serverMetadata.issuer,
       hasAuthorizationEndpoint: Boolean(
-        this.oidcConfig.metadata.authorization_endpoint
+        this.oidcConfig.serverMetadata.authorization_endpoint
       ),
-      hasTokenEndpoint: Boolean(this.oidcConfig.metadata.token_endpoint),
+      hasTokenEndpoint: Boolean(this.oidcConfig.serverMetadata.token_endpoint),
     });
 
-    this.validateProviderMetadata(this.oidcConfig.metadata);
-    this.providerMetadata = this.oidcConfig.metadata;
+    this.validateProviderMetadata(this.oidcConfig.serverMetadata);
+    this.providerMetadata = this.oidcConfig.serverMetadata;
   }
 
   /**
@@ -510,14 +488,20 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @returns Provider quirks
    */
   protected computeProviderQuirks(): import('../../types.js').ProviderQuirks {
+    // Analyze provider metadata for capabilities
+    const supportsRefreshTokens =
+      this.providerMetadata?.grant_types_supported?.includes('refresh_token') ??
+      true; // Default to true for OIDC providers
+
+    const customParameters = Object.keys(
+      this.oidcConfig.additionalParameters || {}
+    );
+
     return {
       supportsOIDCDiscovery: !!this.oidcConfig.issuer,
-      requiresPKCE: true,
-      supportsRefreshTokens:
-        this.providerMetadata?.grant_types_supported?.includes(
-          'refresh_token'
-        ) ?? false,
-      customParameters: Object.keys(this.oidcConfig.customParameters || {}),
+      requiresPKCE: true, // OIDC always requires PKCE for security
+      supportsRefreshTokens,
+      customParameters,
     };
   }
 }

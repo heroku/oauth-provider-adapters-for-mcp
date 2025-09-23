@@ -26,7 +26,7 @@ describe('OIDCProviderAdapter', function () {
     it('should initialize with static metadata', async function () {
       const config = {
         ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
+        serverMetadata: oidcMetadata.minimal,
       };
 
       const adapter = new OIDCProviderAdapter(config);
@@ -35,38 +35,8 @@ describe('OIDCProviderAdapter', function () {
       expect(adapter.getProviderMetadata()).to.exist;
     });
 
-    it('should throw error for missing required fields', async function () {
-      const config = {
-        clientId: '',
-        scopes: ['openid'],
-        metadata: oidcMetadata.minimal,
-      };
-
-      const adapter = new OIDCProviderAdapter(config);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-      }
-    });
-
-    it('should throw error for missing authorization endpoint', async function () {
-      const config = {
-        ...testConfigs.valid,
-        metadata: oidcMetadata.malformed as any,
-      };
-
-      const adapter = new OIDCProviderAdapter(config);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-      }
-    });
+    // Note: Config validation tests have been moved to config.test.ts
+    // This test now focuses on adapter initialization behavior
   });
 
   describe('authorization URL generation', function () {
@@ -75,7 +45,7 @@ describe('OIDCProviderAdapter', function () {
     beforeEach(async function () {
       const config = {
         ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
+        serverMetadata: oidcMetadata.minimal,
       };
 
       adapter = new OIDCProviderAdapter(config);
@@ -129,7 +99,7 @@ describe('OIDCProviderAdapter', function () {
     it('should throw error if not initialized', async function () {
       const config = {
         ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
+        serverMetadata: oidcMetadata.minimal,
       };
       const uninitializedAdapter = new OIDCProviderAdapter(config);
 
@@ -149,7 +119,7 @@ describe('OIDCProviderAdapter', function () {
     it('should compute quirks with static metadata', async function () {
       const config = {
         ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
+        serverMetadata: oidcMetadata.minimal,
       };
 
       const adapter = new OIDCProviderAdapter(config);
@@ -189,8 +159,8 @@ describe('OIDCProviderAdapter', function () {
     it('should include custom parameters in quirks', async function () {
       const config = {
         ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
-        customParameters: {
+        serverMetadata: oidcMetadata.minimal,
+        additionalParameters: {
           custom_param: 'custom_value',
           another_param: 'another_value',
         },
@@ -247,7 +217,7 @@ describe('OIDCProviderAdapter', function () {
     it('should handle invalid redirect URL', async function () {
       const config = {
         ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
+        serverMetadata: oidcMetadata.minimal,
       };
 
       const adapter = new OIDCProviderAdapter(config);
@@ -272,7 +242,7 @@ describe('OIDCProviderAdapter', function () {
 
       const config = {
         ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
+        serverMetadata: oidcMetadata.minimal,
         storageHook: failingStorageHook,
       };
 

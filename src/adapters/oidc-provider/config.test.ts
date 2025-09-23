@@ -1,0 +1,331 @@
+/**
+ * Config validation unit tests
+ * Tests Zod schema validation for the specific requirements:
+ * - issuer vs serverMetadata exclusivity/requirements
+ * - clientId/clientSecret validation
+ * - scopes format and defaults
+ * - timeouts shape
+ * - additionalParameters passthrough
+ * Co-located with config.ts for better maintainability
+ */
+
+import { expect } from 'chai';
+import { validate, safeValidate, OIDCProviderConfigSchema } from './config.js';
+import { oidcMetadata } from '../../fixtures/test-data.js';
+
+describe('OIDCProviderConfig Validation', function () {
+  describe('issuer vs serverMetadata exclusivity/requirements', function () {
+    it('should validate valid configuration with issuer', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid', 'profile', 'email'],
+      };
+
+      const result = validate(validConfig);
+      expect(result).to.deep.equal(validConfig);
+    });
+
+    it('should validate valid configuration with serverMetadata', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        serverMetadata: oidcMetadata.minimal,
+        scopes: ['openid', 'profile', 'email'],
+      };
+
+      const result = validate(validConfig);
+      expect(result).to.deep.equal(validConfig);
+    });
+
+    it('should throw ZodError for both issuer and serverMetadata', function () {
+      const invalidConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        serverMetadata: {
+          issuer: 'https://auth0.com',
+          authorization_endpoint: 'https://auth0.com/oauth/authorize',
+          token_endpoint: 'https://auth0.com/oauth/token',
+        },
+        scopes: ['openid'],
+      };
+
+      try {
+        validate(invalidConfig);
+        expect.fail('Expected to throw');
+      } catch (error: any) {
+        expect(error).to.have.property('name', 'ZodError');
+        expect(error.issues[0].message).to.include('Provide exactly one of');
+      }
+    });
+
+    it('should throw ZodError for neither issuer nor serverMetadata', function () {
+      const invalidConfig = {
+        clientId: 'test-client-id',
+        scopes: ['openid'],
+      };
+
+      try {
+        validate(invalidConfig);
+        expect.fail('Expected to throw');
+      } catch (error: any) {
+        expect(error).to.have.property('name', 'ZodError');
+        expect(error.issues[0].message).to.include('Provide exactly one of');
+      }
+    });
+
+    it('should throw ZodError for invalid issuer URL', function () {
+      const invalidConfig = {
+        clientId: 'test-client-id',
+        issuer: 'not-a-valid-url',
+        scopes: ['openid'],
+      };
+
+      try {
+        validate(invalidConfig);
+        expect.fail('Expected to throw');
+      } catch (error: any) {
+        expect(error).to.have.property('name', 'ZodError');
+        expect(error.issues[0].path).to.include('issuer');
+        expect(error.issues[0].message).to.include('Invalid issuer URL');
+      }
+    });
+
+    it('should throw ZodError for malformed serverMetadata', function () {
+      const invalidConfig = {
+        clientId: 'test-client-id',
+        serverMetadata: oidcMetadata.malformed as any,
+        scopes: ['openid'],
+      };
+
+      try {
+        validate(invalidConfig);
+        expect.fail('Expected to throw');
+      } catch (error: any) {
+        expect(error).to.have.property('name', 'ZodError');
+        expect(error.issues[0].path).to.include('authorization_endpoint');
+      }
+    });
+  });
+
+  describe('clientId/clientSecret validation', function () {
+    it('should throw ZodError for missing clientId', function () {
+      const invalidConfig = {
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+      };
+
+      try {
+        validate(invalidConfig);
+        expect.fail('Expected to throw');
+      } catch (error: any) {
+        expect(error).to.have.property('name', 'ZodError');
+        expect(error.issues[0].path).to.include('clientId');
+        expect(error.issues[0].message).to.include(
+          'expected string, received undefined'
+        );
+      }
+    });
+
+    it('should throw ZodError for empty clientId', function () {
+      const invalidConfig = {
+        clientId: '',
+        scopes: ['openid'],
+        serverMetadata: oidcMetadata.minimal,
+      };
+
+      try {
+        validate(invalidConfig);
+        expect.fail('Expected to throw');
+      } catch (error: any) {
+        expect(error).to.have.property('name', 'ZodError');
+        expect(error.issues[0].path).to.include('clientId');
+        expect(error.issues[0].message).to.include('clientId is required');
+      }
+    });
+
+    it('should validate optional clientSecret', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        clientSecret: 'test-client-secret',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+      };
+
+      const result = validate(validConfig);
+      expect(result.clientSecret).to.equal('test-client-secret');
+    });
+
+    it('should validate missing clientSecret (public client)', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+      };
+
+      const result = validate(validConfig);
+      expect(result.clientSecret).to.be.undefined;
+    });
+  });
+
+  describe('scopes format and defaults', function () {
+    it('should validate default scopes', function () {
+      const configWithoutScopes = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+      };
+
+      const result = validate(configWithoutScopes);
+      expect(result.scopes).to.deep.equal(['openid', 'profile', 'email']);
+    });
+
+    it('should validate custom scopes', function () {
+      const configWithCustomScopes = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid', 'custom_scope'],
+      };
+
+      const result = validate(configWithCustomScopes);
+      expect(result.scopes).to.deep.equal(['openid', 'custom_scope']);
+    });
+
+    it('should validate empty scopes array', function () {
+      const configWithEmptyScopes = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: [],
+      };
+
+      const result = validate(configWithEmptyScopes);
+      expect(result.scopes).to.deep.equal([]);
+    });
+  });
+
+  describe('timeouts shape', function () {
+    it('should validate timeouts configuration', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+        timeouts: {
+          connect: 5000,
+          response: 10000,
+        },
+      };
+
+      const result = validate(validConfig);
+      expect(result.timeouts).to.deep.equal({
+        connect: 5000,
+        response: 10000,
+      });
+    });
+
+    it('should validate partial timeouts configuration', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+        timeouts: {
+          connect: 3000,
+        },
+      };
+
+      const result = validate(validConfig);
+      expect(result.timeouts).to.deep.equal({
+        connect: 3000,
+      });
+    });
+
+    it('should throw ZodError for invalid timeout values', function () {
+      const invalidConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+        timeouts: {
+          connect: -1000, // Invalid negative value
+          response: 0, // Invalid zero value
+        },
+      };
+
+      try {
+        validate(invalidConfig);
+        expect.fail('Expected to throw');
+      } catch (error: any) {
+        expect(error).to.have.property('name', 'ZodError');
+        expect(error.issues[0].path).to.include('timeouts', 'connect');
+        expect(error.issues[0].message).to.include('positive integer');
+      }
+    });
+  });
+
+  describe('additionalParameters passthrough', function () {
+    it('should validate additionalParameters', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+        additionalParameters: {
+          prompt: 'select_account',
+          access_type: 'offline',
+        },
+      };
+
+      const result = validate(validConfig);
+      expect(result.additionalParameters).to.deep.equal({
+        prompt: 'select_account',
+        access_type: 'offline',
+      });
+    });
+
+    it('should validate empty additionalParameters', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+        additionalParameters: {},
+      };
+
+      const result = validate(validConfig);
+      expect(result.additionalParameters).to.deep.equal({});
+    });
+
+    it('should validate missing additionalParameters', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+      };
+
+      const result = validate(validConfig);
+      expect(result.additionalParameters).to.be.undefined;
+    });
+  });
+
+  describe('safeValidate() function', function () {
+    it('should return success for valid configuration', function () {
+      const validConfig = {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+      };
+
+      const result = safeValidate(validConfig);
+      expect(result.success).to.be.true;
+      expect(result.data).to.deep.equal(validConfig);
+      expect(result.error).to.be.undefined;
+    });
+
+    it('should return error for invalid configuration', function () {
+      const invalidConfig = {
+        clientId: '',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+      };
+
+      const result = safeValidate(invalidConfig);
+      expect(result.success).to.be.false;
+      expect(result.data).to.be.undefined;
+      expect(result.error).to.have.property('name', 'ZodError');
+    });
+  });
+});
