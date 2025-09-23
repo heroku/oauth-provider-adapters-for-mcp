@@ -30,8 +30,6 @@ export interface ConfigurableTestAdapterOptions {
   refreshTokenError?: unknown;
   /** Whether refresh tokens are supported */
   supportsRefresh?: boolean;
-  /** Whether to track calls to computeProviderQuirks for memoization testing */
-  trackQuirksCalls?: boolean;
 }
 
 /**
@@ -39,8 +37,6 @@ export interface ConfigurableTestAdapterOptions {
  */
 export class ConfigurableTestAdapter extends BaseOAuthAdapter {
   private options: ConfigurableTestAdapterOptions;
-  private _manuallyInitialized = false;
-  private _quirksCallCount = 0;
 
   constructor(
     config: ProviderConfig,
@@ -59,19 +55,11 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
   }
 
   public async initialize(): Promise<void> {
-    this._manuallyInitialized = true;
     this.initialized = true;
   }
 
   protected getAuthorizationEndpoint(): string {
     return this.options.authEndpoint!;
-  }
-
-  public async generateAuthUrl(
-    interactionId: string,
-    redirectUrl: string
-  ): Promise<string> {
-    return super.generateAuthUrl(interactionId, redirectUrl);
   }
 
   public async exchangeCode(
@@ -114,10 +102,6 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
   }
 
   protected computeProviderQuirks(): ProviderQuirks {
-    if (this.options.trackQuirksCalls) {
-      this._quirksCallCount++;
-    }
-
     const defaultQuirks: ProviderQuirks = {
       supportsOIDCDiscovery: Boolean(this.config.issuer),
       requiresPKCE: true,
@@ -145,12 +129,6 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
     return this.normalizeError(e, context);
   }
 
-  /**
-   * Get the number of times computeProviderQuirks has been called (for memoization testing)
-   */
-  public getQuirksCallCount(): number {
-    return this._quirksCallCount;
-  }
 
   /**
    * Expose enforceProductionStorage for testing
