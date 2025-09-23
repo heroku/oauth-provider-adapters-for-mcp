@@ -12,15 +12,6 @@ import type {
   PKCEPair,
   PKCEStorageHook,
 } from './types.js';
-import { Issuer, generators, custom, Client } from 'openid-client';
-
-/**
- * Circuit breaker state type for discovery
- */
-type DiscoveryCircuitState = {
-  consecutiveFailures: number;
-  openedUntil?: number;
-};
 
 /**
  * Internal mock storage hook for PKCE state persistence
@@ -92,13 +83,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
   /** OpenID Client built from discovered/static metadata */
   private oidcClient?: Client;
-
-  /**
-   * Simple circuit breaker state per issuer to avoid hammering failing discovery endpoints
-   */
-  private static discoveryCircuit: Map<string, DiscoveryCircuitState> =
-    new Map();
-
   private static readonly DISCOVERY_MAX_RETRIES = 2; // total attempts = 1 + retries
   private static readonly DISCOVERY_BACKOFF_MS = 300; // base backoff
   private static readonly CIRCUIT_FAILURE_THRESHOLD = 3;
@@ -148,7 +132,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       } else if (this.oidcConfig.metadata) {
         this.useStaticMetadata();
       } else {
-        throw this.createError(
+        throw this.createStandardError(
           'invalid_request',
           'Either issuer or metadata must be provided',
           {
@@ -192,7 +176,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     redirectUrl: string
   ): Promise<string> {
     if (!this.initialized) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Adapter must be initialized before generating auth URL',
         {
@@ -283,7 +267,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   protected getAuthorizationEndpoint(): string {
     if (!this.providerMetadata) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Provider metadata not available',
         {
@@ -301,19 +285,23 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   private validateConfiguration(): void {
     if (!this.oidcConfig.clientId) {
-      throw this.createError('invalid_request', 'clientId is required', {
-        stage: 'initialize',
-      });
+      throw this.createStandardError(
+        'invalid_request',
+        'clientId is required',
+        {
+          stage: 'initialize',
+        }
+      );
     }
 
     if (!this.oidcConfig.scopes || this.oidcConfig.scopes.length === 0) {
-      throw this.createError('invalid_request', 'scopes are required', {
+      throw this.createStandardError('invalid_request', 'scopes are required', {
         stage: 'initialize',
       });
     }
 
     if (!this.oidcConfig.issuer && !this.oidcConfig.metadata) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Either issuer or metadata must be provided',
         {
@@ -323,7 +311,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
 
     if (this.oidcConfig.issuer && this.oidcConfig.metadata) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Cannot specify both issuer and metadata',
         {
@@ -338,7 +326,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   private async performDiscovery(): Promise<void> {
     if (!this.oidcConfig.issuer) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Issuer not provided for discovery',
         {
@@ -349,18 +337,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
     const issuer = this.oidcConfig.issuer;
     const discoveryUrl = `${issuer}/.well-known/openid-configuration`;
-
-    // Circuit breaker: if open, fail fast
-    const circuit =
-      OIDCProviderAdapter.discoveryCircuit.get(issuer) ||
-      ({ consecutiveFailures: 0 } as DiscoveryCircuitState);
-    if (circuit.openedUntil && Date.now() < circuit.openedUntil) {
-      throw this.createError(
-        'temporarily_unavailable',
-        'Discovery circuit is open due to recent failures. Try again later.',
-        { stage: 'discovery', issuer, discoveryUrl, endpoint: discoveryUrl }
-      );
-    }
 
     this.logger.info('Performing OIDC discovery', {
       stage: 'discovery',
@@ -436,7 +412,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   private useStaticMetadata(): void {
     if (!this.oidcConfig.metadata) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Static metadata not provided',
         {
@@ -465,7 +441,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   private validateProviderMetadata(metadata: OIDCProviderMetadata): void {
     if (!metadata.authorization_endpoint) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Missing authorization_endpoint in provider metadata',
         {
@@ -476,7 +452,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
 
     if (!metadata.token_endpoint) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Missing token_endpoint in provider metadata',
         {
@@ -487,7 +463,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
 
     if (!metadata.jwks_uri) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Missing jwks_uri in provider metadata',
         {
@@ -566,7 +542,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       typeof hook.retrievePKCEState === 'function' &&
       typeof hook.cleanupExpiredState === 'function';
     if (!hasMethods) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'storageHook must implement storePKCEState, retrievePKCEState, and cleanupExpiredState',
         { stage: 'initialize' }
