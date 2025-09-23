@@ -12,14 +12,21 @@ import {
   testConfigs,
   authUrlData,
 } from '../../fixtures/test-data.js';
+import {
+  expectOAuthError,
+  setupSinonStubs,
+  createTestAdapter,
+} from '../../testUtils/testHelpers.js';
 
 describe('OIDCProviderAdapter', function () {
+  let restoreStubs: () => void;
+
   beforeEach(function () {
-    sinon.stub(console, 'info');
+    restoreStubs = setupSinonStubs();
   });
 
   afterEach(function () {
-    sinon.restore();
+    restoreStubs();
   });
 
   describe('initialization', function () {
@@ -44,46 +51,27 @@ describe('OIDCProviderAdapter', function () {
 
       const adapter = new OIDCProviderAdapter(config);
 
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-      }
+      await expectOAuthError(() => adapter.initialize(), 'invalid_request');
     });
 
     it('should throw error for missing authorization endpoint', async function () {
-      const config = {
-        ...testConfigs.valid,
+      const adapter = createTestAdapter({
         metadata: oidcMetadata.malformed as any,
-      };
+      });
 
-      const adapter = new OIDCProviderAdapter(config);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-      }
+      await expectOAuthError(() => adapter.initialize(), 'invalid_request');
     });
 
     it('should throw error when scopes are missing or empty', async function () {
-      const config = {
-        clientId: testConfigs.valid.clientId,
+      const adapter = createTestAdapter({
         scopes: [],
-        metadata: oidcMetadata.minimal,
-      };
+      });
 
-      const adapter = new OIDCProviderAdapter(config);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-        expect(err.error_description).to.include('scopes are required');
-      }
+      await expectOAuthError(
+        () => adapter.initialize(),
+        'invalid_request',
+        'scopes are required'
+      );
     });
 
     it('should throw error when neither issuer nor metadata is provided', async function () {
@@ -131,12 +119,7 @@ describe('OIDCProviderAdapter', function () {
     let adapter: OIDCProviderAdapter;
 
     beforeEach(async function () {
-      const config = {
-        ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
-      };
-
-      adapter = new OIDCProviderAdapter(config);
+      adapter = createTestAdapter();
       await adapter.initialize();
     });
 
@@ -185,21 +168,16 @@ describe('OIDCProviderAdapter', function () {
     });
 
     it('should throw error if not initialized', async function () {
-      const config = {
-        ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
-      };
-      const uninitializedAdapter = new OIDCProviderAdapter(config);
+      const uninitializedAdapter = createTestAdapter();
 
-      try {
-        await uninitializedAdapter.generateAuthUrl(
-          authUrlData.validParams.interactionId,
-          authUrlData.validParams.redirectUrl
-        );
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-      }
+      await expectOAuthError(
+        () =>
+          uninitializedAdapter.generateAuthUrl(
+            authUrlData.validParams.interactionId,
+            authUrlData.validParams.redirectUrl
+          ),
+        'invalid_request'
+      );
     });
   });
 
