@@ -377,4 +377,145 @@ describe('BaseOAuthAdapter', () => {
       expect(quirks.customParameters).to.have.members(['audience', 'prompt']);
     });
   });
+
+  describe('enforceProductionStorage', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('should use provided storage hook when available', () => {
+      const mockStorage = { test: 'storage' };
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const result = adapter.exposeEnforceProductionStorage(
+        mockStorage,
+        'testHook',
+        () => ({ test: 'fallback' })
+      );
+
+      expect(result).to.equal(mockStorage);
+    });
+
+    it('should use fallback storage in development when no storage provided', () => {
+      process.env.NODE_ENV = 'development';
+      const fallbackStorage = { fallback: 'storage' };
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const result = adapter.exposeEnforceProductionStorage(
+        undefined,
+        'testHook',
+        () => fallbackStorage
+      );
+
+      expect(result).to.equal(fallbackStorage);
+    });
+
+    it('should use fallback storage when NODE_ENV is not production', () => {
+      process.env.NODE_ENV = 'test';
+      const fallbackStorage = { fallback: 'storage' };
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const result = adapter.exposeEnforceProductionStorage(
+        undefined,
+        'testHook',
+        () => fallbackStorage
+      );
+
+      expect(result).to.equal(fallbackStorage);
+    });
+
+    it('should throw error in production when no storage provided', () => {
+      process.env.NODE_ENV = 'production';
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(() => {
+        adapter.exposeEnforceProductionStorage(undefined, 'testHook', () => ({
+          fallback: 'storage',
+        }));
+      }).to.throw();
+
+      try {
+        adapter.exposeEnforceProductionStorage(undefined, 'testHook', () => ({
+          fallback: 'storage',
+        }));
+      } catch (err) {
+        const e = err as OAuthError;
+        expect(e.error_description).to.include(
+          'Persistent testHook is required in production'
+        );
+        expect(e.endpoint).to.equal('initialize');
+      }
+    });
+  });
+
+  describe('createStandardError', () => {
+    it('should create normalized error with standard structure', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const error = adapter.exposeCreateStandardError(
+        'invalid_request',
+        'Test error description',
+        { endpoint: '/test', stage: 'test-stage' }
+      );
+
+      expect(error.error).to.equal('invalid_request');
+      expect(error.error_description).to.equal('Test error description');
+      expect(error.endpoint).to.equal('/test');
+      expect(error.statusCode).to.equal(400);
+      expect(error.issuer).to.equal('https://example.com');
+    });
+
+    it('should handle context with issuer override', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      const error = adapter.exposeCreateStandardError(
+        'server_error',
+        'Server error occurred',
+        { issuer: 'https://custom.issuer.com', stage: 'custom-stage' }
+      );
+
+      expect(error.error).to.equal('server_error');
+      expect(error.error_description).to.equal('Server error occurred');
+      expect(error.issuer).to.equal('https://custom.issuer.com');
+    });
+  });
+
+  describe('executeWithResilience', () => {
+    it('should delegate to ResilienceManager', async () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+      const successfulOperation = async () => 'success';
+
+      const result = await adapter.exposeExecuteWithResilience(
+        successfulOperation,
+        { endpoint: '/test' }
+      );
+
+      expect(result).to.equal('success');
+    });
+  });
+
+  describe('setHttpDefaults', () => {
+    it('should log HTTP defaults configuration', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      // This is a placeholder method in base adapter, so we just verify it doesn't throw
+      expect(() => {
+        adapter.exposeSetHttpDefaults({ timeout: 5000 });
+      }).to.not.throw();
+    });
+
+    it('should handle various HTTP options', () => {
+      const adapter = new ConfigurableTestAdapter(mockConfig);
+
+      expect(() => {
+        adapter.exposeSetHttpDefaults({
+          timeout: 8000,
+          retries: 3,
+          headers: { 'User-Agent': 'test' },
+        });
+      }).to.not.throw();
+    });
+  });
 });

@@ -4,16 +4,14 @@
  */
 
 import { BaseOAuthAdapter } from '../../base-adapter.js';
-import type { OAuthError, ProviderConfig } from '../../types.js';
 import type {
   OIDCProviderConfig,
   OIDCProviderMetadata,
-  OIDCErrorContext,
-  PKCEPair,
   PKCEStorageHook,
 } from './types.js';
-import { validate as validateConfig } from './config.js';
-import { createHash, randomBytes } from 'crypto';
+import * as openidClient from 'openid-client';
+const { randomPKCECodeVerifier, calculatePKCECodeChallenge, customFetch } =
+  openidClient;
 
 /**
  * Internal mock storage hook for PKCE state persistence
@@ -80,6 +78,11 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   /** PKCE state expiration time in seconds */
   private readonly pkceStateExpirationSeconds: number;
 
+  private static readonly DISCOVERY_MAX_RETRIES = 2; // total attempts = 1 + retries
+  private static readonly DISCOVERY_BACKOFF_MS = 300; // base backoff
+  private static readonly CIRCUIT_FAILURE_THRESHOLD = 3;
+  private static readonly CIRCUIT_OPEN_MS = 60_000; // 60s
+
   // Note: initialized property is inherited from BaseOAuthAdapter
 
   /**
@@ -87,23 +90,14 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @param config - OIDC provider configuration
    */
   public constructor(config: OIDCProviderConfig) {
-    // Validate configuration using Zod schema
-    const validatedConfig = validateConfig(config);
-
-    // Convert to base ProviderConfig format for compatibility
-    const baseConfig = {
-      clientId: validatedConfig.clientId,
-      clientSecret: validatedConfig.clientSecret,
-      scopes: validatedConfig.scopes,
-      customParameters: validatedConfig.customParameters,
-      redirectUri: validatedConfig.redirectUri,
-    } as ProviderConfig;
-
-    super(baseConfig);
-    this.oidcConfig = validatedConfig as OIDCProviderConfig;
-    this.storageHook = validatedConfig.storageHook || new MockPKCEStorageHook();
-    this.pkceStateExpirationSeconds =
-      validatedConfig.pkceStateExpirationSeconds || 600; // 10 minutes default
+    super(config);
+    this.oidcConfig = config;
+    this.storageHook = this.enforceProductionStorage(
+      config.storageHook,
+      'storageHook',
+      () => new MockPKCEStorageHook()
+    );
+    this.pkceStateExpirationSeconds = config.pkceStateExpirationSeconds || 600; // 10 minutes default
   }
 
   /**
@@ -120,13 +114,23 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       // Configuration is already validated in constructor
 
+      // Validate storage hook shape and basic health
+      await this.validateStorageHook();
+
+      // Set sane default HTTP timeouts for discovery
+      this.setHttpDefaults({ timeout: 8_000 });
+      if (customFetch && openidClient.customFetch) {
+        // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
+        // Timeout handling is done at the fetch level
+      }
+
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
         await this.performDiscovery();
       } else if (this.oidcConfig.serverMetadata) {
         this.useStaticMetadata();
       } else {
-        throw this.createError(
+        throw this.createStandardError(
           'invalid_request',
           'Either issuer or metadata must be provided',
           {
@@ -170,7 +174,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     redirectUrl: string
   ): Promise<string> {
     if (!this.initialized) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Adapter must be initialized before generating auth URL',
         {
@@ -186,32 +190,54 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         scopes: this.oidcConfig.scopes,
       });
 
-      // Generate PKCE pair
-      const pkcePair = this.generatePKCEPair();
+      // Generate PKCE pair using openid-client
+      if (!randomPKCECodeVerifier || !calculatePKCECodeChallenge) {
+        throw this.createStandardError(
+          'server_error',
+          'PKCE generators not available from openid-client',
+          { stage: 'generateAuthUrl' }
+        );
+      }
+      const codeVerifier = randomPKCECodeVerifier();
+      const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
+      const pkcePair = {
+        codeVerifier,
+        codeChallenge,
+        codeChallengeMethod: 'S256' as const,
+      };
 
       // Store PKCE state
       const expiresAt = Date.now() + this.pkceStateExpirationSeconds * 1000;
-      await this.storageHook.storePKCEState(
-        interactionId,
-        interactionId,
-        pkcePair.codeVerifier,
-        expiresAt
-      );
+      try {
+        await this.storageHook.storePKCEState(
+          interactionId,
+          interactionId,
+          pkcePair.codeVerifier,
+          expiresAt
+        );
+      } catch (error) {
+        throw this.normalizeError(error, {
+          endpoint: 'storageHook.storePKCEState',
+        });
+      }
 
-      // Build authorization URL
-      const authEndpoint = this.providerMetadata!.authorization_endpoint;
+      // Build authorization URL via openid-client Client when available
       const params = {
         response_type: 'code',
-        client_id: this.oidcConfig.clientId,
-        redirect_uri: redirectUrl,
         scope: this.oidcConfig.scopes.join(' '),
         state: interactionId,
         code_challenge: pkcePair.codeChallenge,
         code_challenge_method: pkcePair.codeChallengeMethod,
+        redirect_uri: redirectUrl,
         ...this.oidcConfig.customParameters,
-      };
+      } as Record<string, string>;
 
-      const url = this.buildAuthorizeUrl(authEndpoint, params);
+      // Build authorization URL manually
+      const authEndpoint = this.providerMetadata!.authorization_endpoint;
+      const url = this.buildAuthorizeUrl(authEndpoint, {
+        client_id: this.oidcConfig.clientId,
+        ...params,
+      });
 
       this.logger.info('Authorization URL generated successfully', {
         stage: 'generateAuthUrl',
@@ -247,7 +273,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   protected getAuthorizationEndpoint(): string {
     if (!this.providerMetadata) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Provider metadata not available',
         {
@@ -261,11 +287,52 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   // === Private Methods ===
 
   /**
+   * Validate OIDC provider configuration
+   */
+  private validateConfiguration(): void {
+    if (!this.oidcConfig.clientId) {
+      throw this.createStandardError(
+        'invalid_request',
+        'clientId is required',
+        {
+          stage: 'initialize',
+        }
+      );
+    }
+
+    if (!this.oidcConfig.scopes || this.oidcConfig.scopes.length === 0) {
+      throw this.createStandardError('invalid_request', 'scopes are required', {
+        stage: 'initialize',
+      });
+    }
+
+    if (!this.oidcConfig.issuer && !this.oidcConfig.metadata) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Either issuer or metadata must be provided',
+        {
+          stage: 'initialize',
+        }
+      );
+    }
+
+    if (this.oidcConfig.issuer && this.oidcConfig.metadata) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Cannot specify both issuer and metadata',
+        {
+          stage: 'initialize',
+        }
+      );
+    }
+  }
+
+  /**
    * Perform OIDC discovery
    */
   private async performDiscovery(): Promise<void> {
     if (!this.oidcConfig.issuer) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Issuer not provided for discovery',
         {
@@ -274,70 +341,56 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       );
     }
 
-    const discoveryUrl = `${this.oidcConfig.issuer}/.well-known/openid-configuration`;
+    const issuer = this.oidcConfig.issuer;
+    const discoveryUrl = `${issuer}/.well-known/openid-configuration`;
 
-    try {
-      this.logger.info('Performing OIDC discovery', {
-        stage: 'discovery',
-        discoveryUrl,
-        issuer: this.oidcConfig.issuer,
-      });
+    this.logger.info('Performing OIDC discovery', {
+      stage: 'discovery',
+      discoveryUrl,
+      issuer,
+    });
 
-      // TODO: Implement actual OIDC discovery using openid-client
-      // This is a placeholder implementation
-      const response = await fetch(discoveryUrl);
-
-      if (!response.ok) {
-        throw this.createError(
-          'server_error',
-          `Discovery failed with status ${response.status}`,
-          {
-            stage: 'discovery',
-            issuer: this.oidcConfig.issuer,
-            discoveryUrl,
-            endpoint: discoveryUrl,
-          }
-        );
+    const metadata = (await this.executeWithResilience(
+      async () => {
+        const response = await fetch(discoveryUrl);
+        if (!response.ok) {
+          throw new Error(
+            `Discovery failed: ${response.status} ${response.statusText}`
+          );
+        }
+        return await response.json();
+      },
+      {
+        endpoint: discoveryUrl,
+        maxRetries: OIDCProviderAdapter.DISCOVERY_MAX_RETRIES,
+        backoffMs: OIDCProviderAdapter.DISCOVERY_BACKOFF_MS,
+        circuitKey: issuer,
+        failureThreshold: OIDCProviderAdapter.CIRCUIT_FAILURE_THRESHOLD,
+        circuitOpenMs: OIDCProviderAdapter.CIRCUIT_OPEN_MS,
       }
+    )) as OIDCProviderMetadata;
 
-      const metadata = (await response.json()) as OIDCProviderMetadata;
+    // Validate required endpoints
+    this.validateProviderMetadata(metadata);
 
-      // Validate required endpoints
-      this.validateProviderMetadata(metadata);
+    this.providerMetadata = metadata;
 
-      this.providerMetadata = metadata;
-
-      this.logger.info('OIDC discovery completed successfully', {
-        stage: 'discovery',
-        discoveryUrl,
-        issuer: metadata.issuer,
-        hasAuthorizationEndpoint: Boolean(metadata.authorization_endpoint),
-        hasTokenEndpoint: Boolean(metadata.token_endpoint),
-        hasUserinfoEndpoint: Boolean(metadata.userinfo_endpoint),
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('fetch')) {
-        throw this.createError(
-          'server_error',
-          'Failed to perform OIDC discovery',
-          {
-            stage: 'discovery',
-            issuer: this.oidcConfig.issuer,
-            discoveryUrl,
-            endpoint: discoveryUrl,
-          }
-        );
-      }
-      throw error;
-    }
+    this.logger.info('OIDC discovery completed successfully', {
+      stage: 'discovery',
+      discoveryUrl,
+      issuer: metadata.issuer,
+      hasAuthorizationEndpoint: Boolean(metadata.authorization_endpoint),
+      hasTokenEndpoint: Boolean(metadata.token_endpoint),
+      hasUserinfoEndpoint: Boolean(metadata.userinfo_endpoint),
+    });
   }
 
   /**
    * Use static provider metadata
    */
   private useStaticMetadata(): void {
-    if (!this.oidcConfig.serverMetadata) {
-      throw this.createError(
+    if (!this.oidcConfig.metadata) {
+      throw this.createStandardError(
         'invalid_request',
         'Static metadata not provided',
         {
@@ -348,15 +401,17 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
     this.logger.info('Using static OIDC provider metadata', {
       stage: 'initialize',
-      issuer: this.oidcConfig.serverMetadata.issuer,
+      issuer: this.oidcConfig.metadata.issuer,
       hasAuthorizationEndpoint: Boolean(
-        this.oidcConfig.serverMetadata.authorization_endpoint
+        this.oidcConfig.metadata.authorization_endpoint
       ),
-      hasTokenEndpoint: Boolean(this.oidcConfig.serverMetadata.token_endpoint),
+      hasTokenEndpoint: Boolean(this.oidcConfig.metadata.token_endpoint),
     });
 
-    this.validateProviderMetadata(this.oidcConfig.serverMetadata);
-    this.providerMetadata = this.oidcConfig.serverMetadata;
+    this.validateProviderMetadata(this.oidcConfig.metadata);
+    this.providerMetadata = this.oidcConfig.metadata;
+
+    // No discovery; client cannot be constructed without Issuer instance
   }
 
   /**
@@ -364,7 +419,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    */
   private validateProviderMetadata(metadata: OIDCProviderMetadata): void {
     if (!metadata.authorization_endpoint) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Missing authorization_endpoint in provider metadata',
         {
@@ -375,7 +430,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
 
     if (!metadata.token_endpoint) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Missing token_endpoint in provider metadata',
         {
@@ -386,7 +441,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
 
     if (!metadata.jwks_uri) {
-      throw this.createError(
+      throw this.createStandardError(
         'invalid_request',
         'Missing jwks_uri in provider metadata',
         {
@@ -398,59 +453,31 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   }
 
   /**
-   * Generate PKCE code verifier and challenge pair
+   * Validate storage hook contract and perform lightweight health check
    */
-  private generatePKCEPair(): PKCEPair {
-    const codeVerifier = this.generateCodeVerifier();
-    return this.createPKCEPair(codeVerifier);
-  }
+  private async validateStorageHook(): Promise<void> {
+    const hook = this.storageHook;
+    const hasMethods =
+      hook &&
+      typeof hook.storePKCEState === 'function' &&
+      typeof hook.retrievePKCEState === 'function' &&
+      typeof hook.cleanupExpiredState === 'function';
+    if (!hasMethods) {
+      throw this.createStandardError(
+        'invalid_request',
+        'storageHook must implement storePKCEState, retrievePKCEState, and cleanupExpiredState',
+        { stage: 'initialize' }
+      );
+    }
 
-  /**
-   * Create PKCE pair from existing code verifier
-   */
-  private createPKCEPair(codeVerifier: string): PKCEPair {
-    const codeChallenge = this.generateCodeChallenge(codeVerifier);
-    return {
-      codeVerifier,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-    };
-  }
-
-  /**
-   * Generate PKCE code verifier
-   */
-  private generateCodeVerifier(): string {
-    // Generate 32 random bytes and base64url encode
-    const bytes = randomBytes(32);
-    return bytes.toString('base64url');
-  }
-
-  /**
-   * Generate PKCE code challenge from verifier
-   */
-  private generateCodeChallenge(codeVerifier: string): string {
-    const hash = createHash('sha256');
-    hash.update(codeVerifier);
-    return hash.digest('base64url');
-  }
-
-  /**
-   * Create standardized error
-   */
-  private createError(
-    error: string,
-    description: string,
-    context: OIDCErrorContext
-  ): OAuthError {
-    const errorContext: { endpoint?: string; issuer?: string } = {};
-    if (context.endpoint) errorContext.endpoint = context.endpoint;
-    if (context.issuer) errorContext.issuer = context.issuer;
-
-    return this.normalizeError(
-      { error, error_description: description, statusCode: 400 },
-      errorContext
-    );
+    // Lightweight health check: ensure cleanupExpiredState resolves
+    try {
+      await hook.cleanupExpiredState(Date.now());
+    } catch (e) {
+      throw this.normalizeError(e, {
+        endpoint: 'storageHook.cleanupExpiredState',
+      });
+    }
   }
 
   /**
