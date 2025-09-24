@@ -314,7 +314,7 @@ export abstract class BaseOAuthAdapter {
     [key: string]: unknown;
   }): void {
     // This is a placeholder - subclasses should override this if they need to set HTTP defaults
-    // For example, OIDC adapter uses openid-client's custom.setHttpOptionsDefaults()
+    // For example, an OIDC adapter may use openid-client's HTTP configuration mechanisms if available.
     this.logger.debug('HTTP defaults set', { options, stage: 'http-config' });
   }
 }
