@@ -10,8 +10,8 @@ import { OIDCProviderAdapter } from './oidc-adapter.js';
 import {
   oidcMetadata,
   createOIDCConfigWithMetadata,
-  createOIDCConfigWithParams,
   authUrlData,
+  testConfigs,
 } from '../../fixtures/test-data.js';
 import {
   expectOAuthError,

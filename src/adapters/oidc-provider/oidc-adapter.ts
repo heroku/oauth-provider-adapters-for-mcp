@@ -4,11 +4,13 @@
  */
 
 import { BaseOAuthAdapter } from '../../base-adapter.js';
+import type { ProviderConfig } from '../../types.js';
 import type {
   OIDCProviderConfig,
   OIDCProviderMetadata,
   PKCEStorageHook,
 } from './types.js';
+import { validate as validateConfig } from './config.js';
 import * as openidClient from 'openid-client';
 const { randomPKCECodeVerifier, calculatePKCECodeChallenge, customFetch } =
   openidClient;
@@ -90,14 +92,27 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @param config - OIDC provider configuration
    */
   public constructor(config: OIDCProviderConfig) {
-    super(config);
-    this.oidcConfig = config;
+    // Validate configuration using Zod schema
+    const validatedConfig = validateConfig(config);
+
+    // Convert to base ProviderConfig format for compatibility
+    const baseConfig = {
+      clientId: validatedConfig.clientId,
+      clientSecret: validatedConfig.clientSecret,
+      scopes: validatedConfig.scopes,
+      customParameters: validatedConfig.customParameters,
+      redirectUri: validatedConfig.redirectUri,
+    } as ProviderConfig;
+
+    super(baseConfig);
+    this.oidcConfig = validatedConfig as OIDCProviderConfig;
     this.storageHook = this.enforceProductionStorage(
-      config.storageHook,
+      validatedConfig.storageHook,
       'storageHook',
       () => new MockPKCEStorageHook()
     );
-    this.pkceStateExpirationSeconds = config.pkceStateExpirationSeconds || 600; // 10 minutes default
+    this.pkceStateExpirationSeconds =
+      validatedConfig.pkceStateExpirationSeconds || 600; // 10 minutes default
   }
 
   /**
@@ -127,7 +142,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
         await this.performDiscovery();
-      } else if (this.oidcConfig.serverMetadata) {
+      } else if (this.oidcConfig.metadata) {
         this.useStaticMetadata();
       } else {
         throw this.createStandardError(
@@ -287,47 +302,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   // === Private Methods ===
 
   /**
-   * Validate OIDC provider configuration
-   */
-  private validateConfiguration(): void {
-    if (!this.oidcConfig.clientId) {
-      throw this.createStandardError(
-        'invalid_request',
-        'clientId is required',
-        {
-          stage: 'initialize',
-        }
-      );
-    }
-
-    if (!this.oidcConfig.scopes || this.oidcConfig.scopes.length === 0) {
-      throw this.createStandardError('invalid_request', 'scopes are required', {
-        stage: 'initialize',
-      });
-    }
-
-    if (!this.oidcConfig.issuer && !this.oidcConfig.metadata) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Either issuer or metadata must be provided',
-        {
-          stage: 'initialize',
-        }
-      );
-    }
-
-    if (this.oidcConfig.issuer && this.oidcConfig.metadata) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Cannot specify both issuer and metadata',
-        {
-          stage: 'initialize',
-        }
-      );
-    }
-  }
-
-  /**
    * Perform OIDC discovery
    */
   private async performDiscovery(): Promise<void> {
@@ -408,8 +382,10 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       hasTokenEndpoint: Boolean(this.oidcConfig.metadata.token_endpoint),
     });
 
-    this.validateProviderMetadata(this.oidcConfig.metadata);
-    this.providerMetadata = this.oidcConfig.metadata;
+    this.validateProviderMetadata(
+      this.oidcConfig.metadata as OIDCProviderMetadata
+    );
+    this.providerMetadata = this.oidcConfig.metadata as OIDCProviderMetadata;
 
     // No discovery; client cannot be constructed without Issuer instance
   }
