@@ -481,7 +481,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
   }
 
-  // End class members above
 
   /**
    * Exchange authorization code for access token
