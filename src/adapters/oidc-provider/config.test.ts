@@ -10,44 +10,35 @@
  */
 
 import { expect } from 'chai';
-import { validate, safeValidate, OIDCProviderConfigSchema } from './config.js';
-import { oidcMetadata } from '../../fixtures/test-data.js';
+import { validate, safeValidate } from './config.js';
+import {
+  createOIDCConfig,
+  createOIDCConfigWithMetadata,
+  createOIDCConfigWithSecret,
+  createOIDCConfigWithTimeouts,
+  createOIDCConfigWithParams,
+  createOIDCConfigMinimal,
+  createInvalidOIDCConfig,
+} from '../../fixtures/test-data.js';
 
 describe('OIDCProviderConfig Validation', function () {
   describe('issuer vs serverMetadata exclusivity/requirements', function () {
     it('should validate valid configuration with issuer', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid', 'profile', 'email'],
-      };
+      const validConfig = createOIDCConfig();
 
       const result = validate(validConfig);
       expect(result).to.deep.equal(validConfig);
     });
 
     it('should validate valid configuration with serverMetadata', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        serverMetadata: oidcMetadata.minimal,
-        scopes: ['openid', 'profile', 'email'],
-      };
+      const validConfig = createOIDCConfigWithMetadata();
 
       const result = validate(validConfig);
       expect(result).to.deep.equal(validConfig);
     });
 
     it('should throw ZodError for both issuer and serverMetadata', function () {
-      const invalidConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        serverMetadata: {
-          issuer: 'https://auth0.com',
-          authorization_endpoint: 'https://auth0.com/oauth/authorize',
-          token_endpoint: 'https://auth0.com/oauth/token',
-        },
-        scopes: ['openid'],
-      };
+      const invalidConfig = createInvalidOIDCConfig('both-issuer-metadata');
 
       try {
         validate(invalidConfig);
@@ -74,11 +65,7 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should throw ZodError for invalid issuer URL', function () {
-      const invalidConfig = {
-        clientId: 'test-client-id',
-        issuer: 'not-a-valid-url',
-        scopes: ['openid'],
-      };
+      const invalidConfig = createInvalidOIDCConfig('invalid-issuer');
 
       try {
         validate(invalidConfig);
@@ -91,11 +78,7 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should throw ZodError for malformed serverMetadata', function () {
-      const invalidConfig = {
-        clientId: 'test-client-id',
-        serverMetadata: oidcMetadata.malformed as any,
-        scopes: ['openid'],
-      };
+      const invalidConfig = createInvalidOIDCConfig('malformed-metadata');
 
       try {
         validate(invalidConfig);
@@ -109,10 +92,7 @@ describe('OIDCProviderConfig Validation', function () {
 
   describe('clientId/clientSecret validation', function () {
     it('should throw ZodError for missing clientId', function () {
-      const invalidConfig = {
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-      };
+      const invalidConfig = createInvalidOIDCConfig('missing-client-id');
 
       try {
         validate(invalidConfig);
@@ -127,11 +107,7 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should throw ZodError for empty clientId', function () {
-      const invalidConfig = {
-        clientId: '',
-        scopes: ['openid'],
-        serverMetadata: oidcMetadata.minimal,
-      };
+      const invalidConfig = createInvalidOIDCConfig('empty-client-id');
 
       try {
         validate(invalidConfig);
@@ -144,23 +120,14 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should validate optional clientSecret', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        clientSecret: 'test-client-secret',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-      };
+      const validConfig = createOIDCConfigWithSecret({ scopes: ['openid'] });
 
       const result = validate(validConfig);
       expect(result.clientSecret).to.equal('test-client-secret');
     });
 
     it('should validate missing clientSecret (public client)', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-      };
+      const validConfig = createOIDCConfigMinimal();
 
       const result = validate(validConfig);
       expect(result.clientSecret).to.be.undefined;
@@ -169,32 +136,23 @@ describe('OIDCProviderConfig Validation', function () {
 
   describe('scopes format and defaults', function () {
     it('should validate default scopes', function () {
-      const configWithoutScopes = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-      };
+      const configWithoutScopes = createOIDCConfig();
 
       const result = validate(configWithoutScopes);
       expect(result.scopes).to.deep.equal(['openid', 'profile', 'email']);
     });
 
     it('should validate custom scopes', function () {
-      const configWithCustomScopes = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
+      const configWithCustomScopes = createOIDCConfig({
         scopes: ['openid', 'custom_scope'],
-      };
+      });
 
       const result = validate(configWithCustomScopes);
       expect(result.scopes).to.deep.equal(['openid', 'custom_scope']);
     });
 
     it('should validate empty scopes array', function () {
-      const configWithEmptyScopes = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        scopes: [],
-      };
+      const configWithEmptyScopes = createOIDCConfig({ scopes: [] });
 
       const result = validate(configWithEmptyScopes);
       expect(result.scopes).to.deep.equal([]);
@@ -203,15 +161,7 @@ describe('OIDCProviderConfig Validation', function () {
 
   describe('timeouts shape', function () {
     it('should validate timeouts configuration', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-        timeouts: {
-          connect: 5000,
-          response: 10000,
-        },
-      };
+      const validConfig = createOIDCConfigWithTimeouts({ scopes: ['openid'] });
 
       const result = validate(validConfig);
       expect(result.timeouts).to.deep.equal({
@@ -221,14 +171,10 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should validate partial timeouts configuration', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
+      const validConfig = createOIDCConfig({
         scopes: ['openid'],
-        timeouts: {
-          connect: 3000,
-        },
-      };
+        timeouts: { connect: 3000 },
+      });
 
       const result = validate(validConfig);
       expect(result.timeouts).to.deep.equal({
@@ -237,15 +183,7 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should throw ZodError for invalid timeout values', function () {
-      const invalidConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-        timeouts: {
-          connect: -1000, // Invalid negative value
-          response: 0, // Invalid zero value
-        },
-      };
+      const invalidConfig = createInvalidOIDCConfig('invalid-timeout');
 
       try {
         validate(invalidConfig);
@@ -260,15 +198,13 @@ describe('OIDCProviderConfig Validation', function () {
 
   describe('additionalParameters passthrough', function () {
     it('should validate additionalParameters', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
+      const validConfig = createOIDCConfigWithParams({
         scopes: ['openid'],
         additionalParameters: {
           prompt: 'select_account',
           access_type: 'offline',
         },
-      };
+      });
 
       const result = validate(validConfig);
       expect(result.additionalParameters).to.deep.equal({
@@ -278,23 +214,17 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should validate empty additionalParameters', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
+      const validConfig = createOIDCConfig({
         scopes: ['openid'],
         additionalParameters: {},
-      };
+      });
 
       const result = validate(validConfig);
       expect(result.additionalParameters).to.deep.equal({});
     });
 
     it('should validate missing additionalParameters', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-      };
+      const validConfig = createOIDCConfigMinimal();
 
       const result = validate(validConfig);
       expect(result.additionalParameters).to.be.undefined;
@@ -303,11 +233,7 @@ describe('OIDCProviderConfig Validation', function () {
 
   describe('safeValidate() function', function () {
     it('should return success for valid configuration', function () {
-      const validConfig = {
-        clientId: 'test-client-id',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-      };
+      const validConfig = createOIDCConfigMinimal();
 
       const result = safeValidate(validConfig);
       expect(result.success).to.be.true;
@@ -316,11 +242,7 @@ describe('OIDCProviderConfig Validation', function () {
     });
 
     it('should return error for invalid configuration', function () {
-      const invalidConfig = {
-        clientId: '',
-        issuer: 'https://accounts.google.com',
-        scopes: ['openid'],
-      };
+      const invalidConfig = createInvalidOIDCConfig('empty-client-id');
 
       const result = safeValidate(invalidConfig);
       expect(result.success).to.be.false;

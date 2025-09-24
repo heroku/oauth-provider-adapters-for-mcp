@@ -6,14 +6,13 @@ import {
   ErrorThrowingTestAdapter,
   RefreshTokenTestAdapter,
 } from './adapters.js';
+import { createProviderConfig } from '../fixtures/test-data.js';
 
 describe('Test Adapters', () => {
-  const mockConfig: ProviderConfig = {
-    clientId: 'test-client-id',
+  const mockConfig = createProviderConfig({
     clientSecret: 'test-client-secret',
     issuer: 'https://example.com',
-    scopes: ['openid', 'profile'],
-  };
+  });
 
   // Base methods all adapters should have
   const baseMethods = [

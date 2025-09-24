@@ -9,17 +9,20 @@ import {
   MemoizationTestAdapter,
 } from './testUtils/adapters.js';
 import { DefaultLogger } from './logging/logger.js';
+import {
+  createProviderConfig,
+  createProviderConfigWithParams,
+  createProviderConfigMinimal,
+} from './fixtures/test-data.js';
 
 describe('BaseOAuthAdapter', () => {
-  const mockConfig: ProviderConfig = {
-    clientId: 'test-client-id',
+  const mockConfig = createProviderConfigWithParams({
     clientSecret: 'test-client-secret',
     issuer: 'https://example.com',
-    scopes: ['openid', 'profile'],
     additionalParameters: {
       audience: 'test-audience',
     },
-  };
+  });
 
   describe('constructor', () => {
     it('should store config as protected readonly property', () => {
@@ -28,18 +31,16 @@ describe('BaseOAuthAdapter', () => {
 
       expect(storedConfig).to.equal(mockConfig);
       expect(storedConfig.clientId).to.equal('test-client-id');
-      expect(storedConfig.scopes).to.deep.equal(['openid', 'profile']);
+      expect(storedConfig.scopes).to.deep.equal(['openid', 'profile', 'email']);
       expect(storedConfig.additionalParameters?.audience).to.equal(
         'test-audience'
       );
     });
 
     it('should be constructible with minimal config', () => {
-      const minimalConfig: ProviderConfig = {
-        clientId: 'minimal-client',
+      const minimalConfig = createProviderConfigMinimal({
         metadata: { authorization_endpoint: 'https://auth.example.com' },
-        scopes: ['read'],
-      };
+      });
 
       const minimalOptions = {
         tokenResponse: { accessToken: 'x' },
@@ -125,18 +126,21 @@ describe('BaseOAuthAdapter', () => {
       expect(parsedUrl.searchParams.get('redirect_uri')).to.equal(
         'https://example.com/callback'
       );
-      expect(parsedUrl.searchParams.get('scope')).to.equal('openid profile');
+      expect(parsedUrl.searchParams.get('scope')).to.equal(
+        'openid profile email'
+      );
       expect(parsedUrl.searchParams.get('state')).to.equal('test-interaction');
     });
 
     it('should merge custom parameters with base parameters', async () => {
-      const configWithCustom = {
-        ...mockConfig,
+      const configWithCustom = createProviderConfigWithParams({
+        clientSecret: 'test-client-secret',
+        issuer: 'https://example.com',
         additionalParameters: {
           audience: 'test-audience',
           prompt: 'login',
         },
-      };
+      });
 
       const adapter = new ConfigurableTestAdapter(configWithCustom, {
         quirks: { additionalParameters: ['audience'] },
@@ -163,13 +167,14 @@ describe('BaseOAuthAdapter', () => {
     });
 
     it('should handle custom parameters that override base parameters', async () => {
-      const configWithOverride = {
-        ...mockConfig,
+      const configWithOverride = createProviderConfigWithParams({
+        clientSecret: 'test-client-secret',
+        issuer: 'https://example.com',
         additionalParameters: {
           scope: 'custom-scope',
           response_type: 'code id_token',
         },
-      };
+      });
 
       const adapter = new ConfigurableTestAdapter(configWithOverride, {
         quirks: { additionalParameters: ['audience'] },
