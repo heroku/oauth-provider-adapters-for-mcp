@@ -183,13 +183,13 @@ export const createOIDCConfigWithTimeouts = (
   });
 
 /**
- * OIDC config with additional parameters
+ * OIDC config with custom parameters
  */
 export const createOIDCConfigWithParams = (
   overrides: Partial<OIDCProviderConfig> = {}
 ): OIDCProviderConfig =>
   createOIDCConfig({
-    additionalParameters: { prompt: 'login', access_type: 'offline' },
+    customParameters: { prompt: 'login', access_type: 'offline' },
     ...overrides,
   });
 
@@ -216,13 +216,13 @@ export const createProviderConfig = (
 });
 
 /**
- * Provider config with additional parameters
+ * Provider config with custom parameters
  */
 export const createProviderConfigWithParams = (
   overrides: Partial<ProviderConfig> = {}
 ): ProviderConfig =>
   createProviderConfig({
-    additionalParameters: { audience: 'test-audience', prompt: 'login' },
+    customParameters: { audience: 'test-audience', prompt: 'login' },
     ...overrides,
   });
 

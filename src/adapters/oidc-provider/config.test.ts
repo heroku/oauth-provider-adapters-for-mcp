@@ -5,7 +5,7 @@
  * - clientId/clientSecret validation
  * - scopes format and defaults
  * - timeouts shape
- * - additionalParameters passthrough
+ * - customParameters passthrough
  * Co-located with config.ts for better maintainability
  */
 
@@ -196,38 +196,38 @@ describe('OIDCProviderConfig Validation', function () {
     });
   });
 
-  describe('additionalParameters passthrough', function () {
-    it('should validate additionalParameters', function () {
+  describe('customParameters passthrough', function () {
+    it('should validate customParameters', function () {
       const validConfig = createOIDCConfigWithParams({
         scopes: ['openid'],
-        additionalParameters: {
+        customParameters: {
           prompt: 'select_account',
           access_type: 'offline',
         },
       });
 
       const result = validate(validConfig);
-      expect(result.additionalParameters).to.deep.equal({
+      expect(result.customParameters).to.deep.equal({
         prompt: 'select_account',
         access_type: 'offline',
       });
     });
 
-    it('should validate empty additionalParameters', function () {
+    it('should validate empty customParameters', function () {
       const validConfig = createOIDCConfig({
         scopes: ['openid'],
-        additionalParameters: {},
+        customParameters: {},
       });
 
       const result = validate(validConfig);
-      expect(result.additionalParameters).to.deep.equal({});
+      expect(result.customParameters).to.deep.equal({});
     });
 
-    it('should validate missing additionalParameters', function () {
+    it('should validate missing customParameters', function () {
       const validConfig = createOIDCConfigMinimal();
 
       const result = validate(validConfig);
-      expect(result.additionalParameters).to.be.undefined;
+      expect(result.customParameters).to.be.undefined;
     });
   });
 

@@ -95,7 +95,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       clientId: validatedConfig.clientId,
       clientSecret: validatedConfig.clientSecret,
       scopes: validatedConfig.scopes,
-      additionalParameters: validatedConfig.additionalParameters,
+      customParameters: validatedConfig.customParameters,
       redirectUri: validatedConfig.redirectUri,
     } as ProviderConfig;
 
@@ -208,7 +208,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         state: interactionId,
         code_challenge: pkcePair.codeChallenge,
         code_challenge_method: pkcePair.codeChallengeMethod,
-        ...this.oidcConfig.additionalParameters,
+        ...this.oidcConfig.customParameters,
       };
 
       const url = this.buildAuthorizeUrl(authEndpoint, params);
@@ -491,15 +491,15 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       this.providerMetadata?.grant_types_supported?.includes('refresh_token') ??
       true; // Default to true for OIDC providers
 
-    const additionalParameters = Object.keys(
-      this.oidcConfig.additionalParameters || {}
+    const customParameters = Object.keys(
+      this.oidcConfig.customParameters || {}
     );
 
     return {
       supportsOIDCDiscovery: !!this.oidcConfig.issuer,
       requiresPKCE: true, // OIDC always requires PKCE for security
       supportsRefreshTokens,
-      additionalParameters,
+      customParameters,
     };
   }
 }

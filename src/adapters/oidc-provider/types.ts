@@ -96,8 +96,8 @@ export interface OIDCProviderConfig extends ProviderConfig {
   issuer?: string;
   /** Static OIDC provider metadata (exactly one of issuer or serverMetadata must be provided) */
   serverMetadata?: OIDCProviderMetadata;
-  /** Additional parameters to include in authorization requests */
-  additionalParameters?: Record<string, string>;
+  /** Custom parameters to include in authorization requests */
+  customParameters?: Record<string, string>;
   /** Timeout configuration */
   timeouts?: {
     connect?: number;

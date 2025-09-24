@@ -38,7 +38,7 @@ export const OIDCProviderConfigSchema = z
     issuer: z.string().url('Invalid issuer URL').optional(),
     serverMetadata: ServerMetadataSchema.optional(),
     scopes: z.array(z.string()).default(['openid', 'profile', 'email']),
-    additionalParameters: z.record(z.string(), z.string()).optional(),
+    customParameters: z.record(z.string(), z.string()).optional(),
     timeouts: z
       .object({
         connect: z

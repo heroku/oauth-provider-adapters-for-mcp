@@ -12,8 +12,8 @@ export type ProviderConfig = {
   metadata?: Record<string, unknown>;
   /** OAuth scopes to request */
   scopes: string[];
-  /** Additional parameters to include in authorization requests */
-  additionalParameters?: Record<string, string>;
+  /** Custom parameters to include in authorization requests */
+  customParameters?: Record<string, string>;
   /** Default redirect URI (optional; can be provided per call if not set) */
   redirectUri?: string;
 };
@@ -46,8 +46,8 @@ export type ProviderQuirks = {
   requiresPKCE: boolean;
   /** Whether the provider supports refresh tokens */
   supportsRefreshTokens: boolean;
-  /** List of additional parameter keys supported by the provider */
-  additionalParameters: string[];
+  /** List of custom parameter keys supported by the provider */
+  customParameters: string[];
 };
 /**
  * Standardized OAuth error shape for consistent error handling

@@ -19,7 +19,7 @@ describe('BaseOAuthAdapter', () => {
   const mockConfig = createProviderConfigWithParams({
     clientSecret: 'test-client-secret',
     issuer: 'https://example.com',
-    additionalParameters: {
+    customParameters: {
       audience: 'test-audience',
     },
   });
@@ -32,9 +32,7 @@ describe('BaseOAuthAdapter', () => {
       expect(storedConfig).to.equal(mockConfig);
       expect(storedConfig.clientId).to.equal('test-client-id');
       expect(storedConfig.scopes).to.deep.equal(['openid', 'profile', 'email']);
-      expect(storedConfig.additionalParameters?.audience).to.equal(
-        'test-audience'
-      );
+      expect(storedConfig.customParameters?.audience).to.equal('test-audience');
     });
 
     it('should be constructible with minimal config', () => {
@@ -49,7 +47,7 @@ describe('BaseOAuthAdapter', () => {
           supportsOIDCDiscovery: false,
           requiresPKCE: false,
           supportsRefreshTokens: false,
-          additionalParameters: [],
+          customParameters: [],
         },
       };
 
@@ -102,7 +100,7 @@ describe('BaseOAuthAdapter', () => {
       const adapter = new ConfigurableTestAdapter(mockConfig, {
         tokenResponse: { accessToken: 'test' },
         refreshTokenResponse: { accessToken: 'refresh' },
-        quirks: { additionalParameters: ['audience'] },
+        quirks: { customParameters: ['audience'] },
       });
       await adapter.initialize();
 
@@ -136,14 +134,14 @@ describe('BaseOAuthAdapter', () => {
       const configWithCustom = createProviderConfigWithParams({
         clientSecret: 'test-client-secret',
         issuer: 'https://example.com',
-        additionalParameters: {
+        customParameters: {
           audience: 'test-audience',
           prompt: 'login',
         },
       });
 
       const adapter = new ConfigurableTestAdapter(configWithCustom, {
-        quirks: { additionalParameters: ['audience'] },
+        quirks: { customParameters: ['audience'] },
       });
       await adapter.initialize();
 
@@ -170,14 +168,14 @@ describe('BaseOAuthAdapter', () => {
       const configWithOverride = createProviderConfigWithParams({
         clientSecret: 'test-client-secret',
         issuer: 'https://example.com',
-        additionalParameters: {
+        customParameters: {
           scope: 'custom-scope',
           response_type: 'code id_token',
         },
       });
 
       const adapter = new ConfigurableTestAdapter(configWithOverride, {
-        quirks: { additionalParameters: ['audience'] },
+        quirks: { customParameters: ['audience'] },
       });
       await adapter.initialize();
 
@@ -326,7 +324,7 @@ describe('BaseOAuthAdapter', () => {
         clientId: 'x',
         issuer: 'https://issuer.example',
         scopes: ['openid'],
-        additionalParameters: { audience: 'api' },
+        customParameters: { audience: 'api' },
       };
 
       const adapter = new MemoizationTestAdapter(cfg);
@@ -363,12 +361,12 @@ describe('BaseOAuthAdapter', () => {
       }
     });
 
-    it('returns expected shape and additionalParameters reflect config', () => {
+    it('returns expected shape and customParameters reflect config', () => {
       const cfg: ProviderConfig = {
         clientId: 'a',
         scopes: ['openid', 'profile'],
         issuer: 'https://issuer.example',
-        additionalParameters: { audience: 'api', prompt: 'login' },
+        customParameters: { audience: 'api', prompt: 'login' },
       };
       const adapter = new ConfigurableTestAdapter(cfg);
       const quirks = adapter.getProviderQuirks();
@@ -376,10 +374,7 @@ describe('BaseOAuthAdapter', () => {
       expect(quirks.supportsOIDCDiscovery).to.equal(true);
       expect(quirks.requiresPKCE).to.equal(true);
       expect(quirks.supportsRefreshTokens).to.equal(true);
-      expect(quirks.additionalParameters).to.have.members([
-        'audience',
-        'prompt',
-      ]);
+      expect(quirks.customParameters).to.have.members(['audience', 'prompt']);
     });
   });
 });
