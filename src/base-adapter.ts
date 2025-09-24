@@ -102,10 +102,10 @@ export abstract class BaseOAuthAdapter {
 
     const authEndpoint = this.getAuthorizationEndpoint();
     const baseParams = this.buildBaseAuthParams(interactionId, redirectUrl);
-    const customParams = this.config.customParameters || {};
+    const additionalParams = this.config.additionalParameters || {};
 
-    // Merge custom parameters with base parameters
-    const allParams = { ...baseParams, ...customParams };
+    // Merge additional parameters with base parameters
+    const allParams = { ...baseParams, ...additionalParams };
 
     return this.buildAuthorizeUrl(authEndpoint, allParams);
   }

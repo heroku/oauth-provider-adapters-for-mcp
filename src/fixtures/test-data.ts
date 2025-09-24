@@ -13,7 +13,7 @@ export const testConfigs = {
   valid: {
     clientId: 'test-client-id',
     scopes: ['openid', 'profile', 'email'],
-    customParameters: { custom_param: 'custom_value' },
+    additionalParameters: { custom_param: 'custom_value' },
   } as ProviderConfig,
 
   minimal: {

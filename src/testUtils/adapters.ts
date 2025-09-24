@@ -122,7 +122,7 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
       supportsOIDCDiscovery: Boolean(this.config.issuer),
       requiresPKCE: true,
       supportsRefreshTokens: this.options.supportsRefresh ?? true,
-      customParameters: Object.keys(this.config.customParameters || {}),
+      additionalParameters: Object.keys(this.config.additionalParameters || {}),
     };
 
     return { ...defaultQuirks, ...this.options.quirks };
@@ -208,7 +208,7 @@ export class TokenMappingTestAdapter extends BaseOAuthAdapter {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,
       supportsRefreshTokens: true,
-      customParameters: [],
+      additionalParameters: [],
     };
   }
 
@@ -265,7 +265,7 @@ export class ErrorThrowingTestAdapter extends BaseOAuthAdapter {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,
       supportsRefreshTokens: true,
-      customParameters: [],
+      additionalParameters: [],
     };
   }
 
@@ -281,7 +281,7 @@ export class ErrorThrowingTestAdapter extends BaseOAuthAdapter {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,
       supportsRefreshTokens: true,
-      customParameters: [],
+      additionalParameters: [],
     };
   }
 }
@@ -348,7 +348,7 @@ export class RefreshTokenTestAdapter extends BaseOAuthAdapter {
       supportsOIDCDiscovery: true,
       requiresPKCE: true,
       supportsRefreshTokens: this.refreshSupported,
-      customParameters: [],
+      additionalParameters: [],
     };
   }
 
@@ -393,7 +393,7 @@ export class MemoizationTestAdapter extends BaseOAuthAdapter {
       supportsOIDCDiscovery: Boolean(this.config.issuer),
       requiresPKCE: true,
       supportsRefreshTokens: true,
-      customParameters: Object.keys(this.config.customParameters || {}),
+      additionalParameters: Object.keys(this.config.additionalParameters || {}),
     };
   }
 

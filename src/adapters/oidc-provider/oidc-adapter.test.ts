@@ -130,7 +130,7 @@ describe('OIDCProviderAdapter', function () {
       expect(quirks.supportsOIDCDiscovery).to.equal(false);
       expect(quirks.requiresPKCE).to.equal(true);
       expect(quirks.supportsRefreshTokens).to.equal(false);
-      expect(quirks.customParameters).to.be.an('array');
+      expect(quirks.additionalParameters).to.be.an('array');
     });
 
     it('should compute quirks with issuer-based discovery', async function () {
@@ -153,7 +153,7 @@ describe('OIDCProviderAdapter', function () {
 
       expect(quirks.supportsOIDCDiscovery).to.equal(true);
       expect(quirks.requiresPKCE).to.equal(true);
-      expect(quirks.customParameters).to.be.an('array');
+      expect(quirks.additionalParameters).to.be.an('array');
     });
 
     it('should include custom parameters in quirks', async function () {
@@ -171,8 +171,8 @@ describe('OIDCProviderAdapter', function () {
 
       const quirks = adapter.getProviderQuirks();
 
-      expect(quirks.customParameters).to.include('custom_param');
-      expect(quirks.customParameters).to.include('another_param');
+      expect(quirks.additionalParameters).to.include('custom_param');
+      expect(quirks.additionalParameters).to.include('another_param');
     });
   });
 
