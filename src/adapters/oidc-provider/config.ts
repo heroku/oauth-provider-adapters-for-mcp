@@ -36,7 +36,7 @@ export const OIDCProviderConfigSchema = z
       .min(1, 'clientSecret is required for confidential clients')
       .optional(),
     issuer: z.string().url('Invalid issuer URL').optional(),
-    serverMetadata: ServerMetadataSchema.optional(),
+    metadata: ServerMetadataSchema.optional(),
     scopes: z.array(z.string()).default(['openid', 'profile', 'email']),
     customParameters: z.record(z.string(), z.string()).optional(),
     timeouts: z
@@ -63,9 +63,9 @@ export const OIDCProviderConfigSchema = z
       .positive('PKCE state expiration must be a positive integer')
       .optional(),
   })
-  .refine((v) => Boolean(v.issuer) !== Boolean(v.serverMetadata), {
-    message: 'Provide exactly one of `issuer` or `serverMetadata`',
-    path: ['issuer', 'serverMetadata'],
+  .refine((v) => Boolean(v.issuer) !== Boolean(v.metadata), {
+    message: 'Provide exactly one of `issuer` or `metadata`',
+    path: ['issuer', 'metadata'],
   });
 
 export type OIDCProviderConfig = z.infer<typeof OIDCProviderConfigSchema>;

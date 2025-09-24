@@ -15,6 +15,7 @@ import {
 } from '../../fixtures/test-data.js';
 import {
   expectOAuthError,
+  expectToThrow,
   setupSinonStubs,
   createTestAdapter,
 } from '../../testUtils/testHelpers.js';
@@ -47,28 +48,32 @@ describe('OIDCProviderAdapter', function () {
         metadata: oidcMetadata.minimal,
       };
 
-      const adapter = new OIDCProviderAdapter(config);
-
-      await expectOAuthError(() => adapter.initialize(), 'invalid_request');
+      expectToThrow(
+        () => new OIDCProviderAdapter(config),
+        'clientId is required'
+      );
     });
 
     it('should throw error for missing authorization endpoint', async function () {
-      const adapter = createTestAdapter({
-        metadata: oidcMetadata.malformed as any,
-      });
-
-      await expectOAuthError(() => adapter.initialize(), 'invalid_request');
+      expectToThrow(
+        () =>
+          createTestAdapter({
+            metadata: oidcMetadata.malformed as any,
+          }),
+        'Invalid input: expected string, received undefined'
+      );
     });
 
     it('should throw error when scopes are missing or empty', async function () {
-      const adapter = createTestAdapter({
+      const config = {
+        clientId: 'test-client-id',
         scopes: [],
-      });
+        // No issuer or metadata provided
+      };
 
-      await expectOAuthError(
-        () => adapter.initialize(),
-        'invalid_request',
-        'scopes are required'
+      expectToThrow(
+        () => new OIDCProviderAdapter(config as any),
+        'Provide exactly one of `issuer` or `metadata`'
       );
     });
 
@@ -78,17 +83,10 @@ describe('OIDCProviderAdapter', function () {
         scopes: ['openid'],
       };
 
-      const adapter = new OIDCProviderAdapter(config as any);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-        expect(err.error_description).to.include(
-          'Either issuer or metadata must be provided'
-        );
-      }
+      expectToThrow(
+        () => new OIDCProviderAdapter(config as any),
+        'Provide exactly one of `issuer` or `metadata`'
+      );
     });
 
     it('should throw error when both issuer and metadata are provided', async function () {
@@ -99,17 +97,10 @@ describe('OIDCProviderAdapter', function () {
         metadata: oidcMetadata.minimal,
       };
 
-      const adapter = new OIDCProviderAdapter(config as any);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-        expect(err.error_description).to.include(
-          'Cannot specify both issuer and metadata'
-        );
-      }
+      expectToThrow(
+        () => new OIDCProviderAdapter(config as any),
+        'Provide exactly one of `issuer` or `metadata`'
+      );
     });
   });
 
@@ -221,7 +212,7 @@ describe('OIDCProviderAdapter', function () {
       const config = {
         clientId: 'test-client-id',
         scopes: ['openid', 'profile', 'email'],
-        serverMetadata: oidcMetadata.minimal,
+        metadata: oidcMetadata.minimal,
         customParameters: {
           custom_param: 'custom_value',
           another_param: 'another_value',

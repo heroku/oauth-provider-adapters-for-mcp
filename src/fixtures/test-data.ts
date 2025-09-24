@@ -10,6 +10,15 @@ import type { OIDCProviderConfig } from '../adapters/oidc-provider/types.js';
 // COMMON TEST DATA
 // ============================================================================
 
+export const testConfigs = {
+  valid: {
+    clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
+    scopes: ['openid', 'profile', 'email'],
+    redirectUri: 'https://example.com/callback',
+  } as ProviderConfig,
+};
+
 // ============================================================================
 // ERROR TEST DATA
 // ============================================================================
@@ -89,7 +98,7 @@ export const oidcMetadata = {
 
   malformed: {
     issuer: 'https://auth.example.com',
-    // Missing required authorization_endpoint
+    // Missing required authorization_endpoint to trigger validation error
     token_endpoint: 'https://auth.example.com/token',
     jwks_uri: 'https://auth.example.com/.well-known/jwks.json',
   },
@@ -155,7 +164,7 @@ export const createOIDCConfigWithMetadata = (
   return {
     clientId: 'test-client-id',
     scopes: ['openid', 'profile', 'email'],
-    serverMetadata: oidcMetadata.minimal,
+    metadata: oidcMetadata.minimal,
     ...rest,
   };
 };
@@ -266,7 +275,7 @@ export const createInvalidOIDCConfig = (
       return {
         clientId: 'test-client-id',
         issuer: 'https://accounts.google.com',
-        serverMetadata: oidcMetadata.minimal,
+        metadata: oidcMetadata.minimal,
         scopes: ['openid'],
       };
     case 'empty-client-id':
@@ -278,7 +287,7 @@ export const createInvalidOIDCConfig = (
     case 'malformed-metadata':
       return {
         clientId: 'test-client-id',
-        serverMetadata: oidcMetadata.malformed as any,
+        metadata: oidcMetadata.malformed as any,
         scopes: ['openid'],
       };
     case 'invalid-timeout':

@@ -29,6 +29,14 @@ export async function expectOAuthError(
 }
 
 /**
+ * Helper for testing constructor validation errors
+ * Simple wrapper for sync error testing
+ */
+export function expectToThrow(fn: () => any, expectedMessage: string): void {
+  expect(fn).to.throw(expectedMessage);
+}
+
+/**
  * Helper for setting up and tearing down sinon stubs
  */
 export function setupSinonStubs(): () => void {
