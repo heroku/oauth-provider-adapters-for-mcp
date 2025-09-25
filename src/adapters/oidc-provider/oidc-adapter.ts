@@ -139,6 +139,14 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         // Timeout handling is done at the fetch level
       }
 
+      // Validate storage hook shape and basic health
+      await this.validateStorageHook();
+
+      // Set sane default HTTP timeouts for discovery
+      this.setHttpDefaults({ timeout: 8_000 });
+      // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
+      // Timeout handling is done at the fetch level
+
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
         await this.performDiscovery();
@@ -300,6 +308,47 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   }
 
   // === Private Methods ===
+
+  /**
+   * Validate OIDC provider configuration
+   */
+  private validateConfiguration(): void {
+    if (!this.oidcConfig.clientId) {
+      throw this.createStandardError(
+        'invalid_request',
+        'clientId is required',
+        {
+          stage: 'initialize',
+        }
+      );
+    }
+
+    if (!this.oidcConfig.scopes || this.oidcConfig.scopes.length === 0) {
+      throw this.createStandardError('invalid_request', 'scopes are required', {
+        stage: 'initialize',
+      });
+    }
+
+    if (!this.oidcConfig.issuer && !this.oidcConfig.metadata) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Either issuer or metadata must be provided',
+        {
+          stage: 'initialize',
+        }
+      );
+    }
+
+    if (this.oidcConfig.issuer && this.oidcConfig.metadata) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Cannot specify both issuer and metadata',
+        {
+          stage: 'initialize',
+        }
+      );
+    }
+  }
 
   /**
    * Perform OIDC discovery

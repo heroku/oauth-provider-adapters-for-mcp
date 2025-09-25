@@ -89,6 +89,37 @@ describe('OIDCProviderAdapter', function () {
       );
     });
 
+    it('should throw error when scopes are missing or empty', async function () {
+      const adapter = createTestAdapter({
+        scopes: [],
+      });
+
+      await expectOAuthError(
+        () => adapter.initialize(),
+        'invalid_request',
+        'scopes are required'
+      );
+    });
+
+    it('should throw error when neither issuer nor metadata is provided', async function () {
+      const config = {
+        clientId: testConfigs.valid.clientId,
+        scopes: ['openid'],
+      };
+
+      const adapter = new OIDCProviderAdapter(config as any);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include(
+          'Either issuer or metadata must be provided'
+        );
+      }
+    });
+
     it('should throw error when both issuer and metadata are provided', async function () {
       const config = {
         clientId: testConfigs.valid.clientId,
@@ -271,6 +302,123 @@ describe('OIDCProviderAdapter', function () {
       const incompleteStorageHook = {
         storePKCEState: sinon.stub().resolves(),
         // Missing retrievePKCEState and cleanupExpiredState
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: incompleteStorageHook as any,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include('storageHook must implement');
+        expect(err.error_description).to.include('storePKCEState');
+        expect(err.error_description).to.include('retrievePKCEState');
+        expect(err.error_description).to.include('cleanupExpiredState');
+      }
+    });
+
+    it('should validate storage hook methods are functions', async function () {
+      const invalidStorageHook = {
+        storePKCEState: 'not-a-function',
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: sinon.stub().resolves(),
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: invalidStorageHook as any,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include('storageHook must implement');
+      }
+    });
+
+    it('should perform health check on cleanupExpiredState', async function () {
+      const cleanupStub = sinon.stub().resolves();
+      const validStorageHook = {
+        storePKCEState: sinon.stub().resolves(),
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: cleanupStub,
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: validStorageHook,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+      await adapter.initialize();
+
+      // Verify cleanupExpiredState was called during validation
+      expect(cleanupStub.calledOnce).to.be.true;
+      expect(cleanupStub.firstCall.args[0]).to.be.a('number');
+    });
+
+    it('should handle cleanupExpiredState health check failures', async function () {
+      const failingCleanupHook = {
+        storePKCEState: sinon.stub().resolves(),
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: sinon.stub().rejects(new Error('Cleanup failed')),
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: failingCleanupHook,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error_description).to.include('Cleanup failed');
+        expect(err.endpoint).to.equal('storageHook.cleanupExpiredState');
+      }
+    });
+
+    it('should accept valid storage hook', async function () {
+      const validStorageHook = {
+        storePKCEState: sinon.stub().resolves(),
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: sinon.stub().resolves(),
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: validStorageHook,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      // Should not throw
+      await adapter.initialize();
+      expect(adapter.getProviderMetadata()).to.exist;
+    });
+  });
+
+  describe('Error Handling', function () {
+    it('should handle invalid redirect URL', async function () {
+      const incompleteStorageHook = {
+        storePKCEState: sinon.stub().resolves(),
       };
 
       const config = {
