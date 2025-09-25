@@ -127,7 +127,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         hasMetadata: Boolean(this.oidcConfig.serverMetadata),
       });
 
-      // Configuration is already validated in constructor
+      // Validate storage hook shape and basic health
       this.validateConfiguration();
 
       // Validate storage hook shape and basic health
