@@ -1,19 +1,16 @@
 import { expect } from 'chai';
 import type { ProviderConfig } from '../types.js';
+import { testConfigs } from '../fixtures/test-data.js';
 import {
   ConfigurableTestAdapter,
   TokenMappingTestAdapter,
   ErrorThrowingTestAdapter,
   RefreshTokenTestAdapter,
+  MemoizationTestAdapter,
 } from './adapters.js';
 
 describe('Test Adapters', () => {
-  const mockConfig: ProviderConfig = {
-    clientId: 'test-client-id',
-    clientSecret: 'test-client-secret',
-    issuer: 'https://example.com',
-    scopes: ['openid', 'profile'],
-  };
+  const mockConfig: ProviderConfig = testConfigs.valid;
 
   // Base methods all adapters should have
   const baseMethods = [
@@ -30,6 +27,7 @@ describe('Test Adapters', () => {
     ErrorThrowingTestAdapter: ['exposeNormalizeError'],
     TokenMappingTestAdapter: [],
     RefreshTokenTestAdapter: [],
+    MemoizationTestAdapter: ['getCallCount'],
   };
 
   const testCases = [
@@ -40,6 +38,7 @@ describe('Test Adapters', () => {
       AdapterClass: ErrorThrowingTestAdapter,
     },
     { name: 'RefreshTokenTestAdapter', AdapterClass: RefreshTokenTestAdapter },
+    { name: 'MemoizationTestAdapter', AdapterClass: MemoizationTestAdapter },
   ];
 
   testCases.forEach(({ name, AdapterClass }) => {

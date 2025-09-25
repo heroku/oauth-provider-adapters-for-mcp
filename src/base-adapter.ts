@@ -5,6 +5,10 @@ import type {
   ProviderQuirks,
 } from './types.js';
 import { ErrorNormalizer } from './utils/error-normalizer.js';
+import {
+  ResilienceManager,
+  type ResilienceContext,
+} from './utils/resilience-manager.js';
 import { Logger } from './logging/types.js';
 import { DefaultLogger } from './logging/logger.js';
 
@@ -224,5 +228,93 @@ export abstract class BaseOAuthAdapter {
     context: { endpoint?: string; issuer?: string }
   ): OAuthError {
     return ErrorNormalizer.normalizeError(e, context, this.config.issuer);
+  }
+
+  /**
+   * Enforce production storage safety by preventing unsafe fallbacks to in-memory storage.
+   * This generic method can be used by any adapter that needs persistent storage.
+   *
+   * @param storageHook - The storage hook implementation (or undefined)
+   * @param hookName - Name of the hook for error/logging messages
+   * @param mockFallback - Function to create mock storage for development
+   * @returns The storage hook to use
+   * @throws {OAuthError} If no storage hook is provided in production
+   */
+  protected enforceProductionStorage<T>(
+    storageHook: T | undefined,
+    hookName: string,
+    mockFallback: () => T
+  ): T {
+    if (!storageHook) {
+      if (process.env.NODE_ENV === 'production') {
+        throw this.normalizeError(
+          new Error(
+            `Persistent ${hookName} is required in production; in-memory storage is not allowed`
+          ),
+          { endpoint: 'initialize' }
+        );
+      }
+      this.logger.warn(
+        `No ${hookName} provided; using in-memory mock storage (not for production)`,
+        { stage: 'initialize' }
+      );
+      return mockFallback();
+    }
+    return storageHook;
+  }
+
+  /**
+   * Create a standardized OAuth error with consistent structure.
+   * Helper method for subclasses to create well-formed errors.
+   *
+   * @param error - OAuth error code
+   * @param description - Human-readable error description
+   * @param context - Additional context like stage, endpoint, issuer
+   * @returns Normalized OAuthError
+   */
+  protected createStandardError(
+    error: string,
+    description: string,
+    context: { endpoint?: string; stage?: string; issuer?: string }
+  ): OAuthError {
+    return this.normalizeError(
+      { error, error_description: description, statusCode: 400 },
+      context
+    );
+  }
+
+  /**
+   * Execute an operation with resilience patterns: retry with exponential backoff and circuit breaker.
+   * This method provides consistent error handling and reliability for OAuth provider endpoint calls.
+   *
+   * @param operation - The async operation to execute
+   * @param context - Context for the operation including endpoint and resilience configuration
+   * @returns The result of the operation
+   * @throws {OAuthError} If operation fails after retries or circuit is open
+   */
+  protected async executeWithResilience<T>(
+    operation: () => Promise<T>,
+    context: ResilienceContext
+  ): Promise<T> {
+    return ResilienceManager.executeWithResilience(
+      operation,
+      context,
+      (error, errorContext) => this.normalizeError(error, errorContext)
+    );
+  }
+
+  /**
+   * Set HTTP defaults for network operations.
+   * This method can be called by subclasses to configure timeouts and other HTTP settings.
+   *
+   * @param options - HTTP configuration options
+   */
+  protected setHttpDefaults(options: {
+    timeout?: number;
+    [key: string]: unknown;
+  }): void {
+    // This is a placeholder - subclasses should override this if they need to set HTTP defaults
+    // For example, an OIDC adapter may use openid-client's HTTP configuration mechanisms if available.
+    this.logger.debug('HTTP defaults set', { options, stage: 'http-config' });
   }
 }
