@@ -12,7 +12,7 @@ export type ProviderConfig = {
   metadata?: Record<string, unknown>;
   /** OAuth scopes to request */
   scopes: string[];
-  /** Additional custom parameters to include in authorization requests */
+  /** Custom parameters to include in authorization requests */
   customParameters?: Record<string, string>;
   /** Default redirect URI (optional; can be provided per call if not set) */
   redirectUri?: string;

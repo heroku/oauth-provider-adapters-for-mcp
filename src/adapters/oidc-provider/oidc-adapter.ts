@@ -4,11 +4,13 @@
  */
 
 import { BaseOAuthAdapter } from '../../base-adapter.js';
+import type { ProviderConfig } from '../../types.js';
 import type {
   OIDCProviderConfig,
   OIDCProviderMetadata,
   PKCEStorageHook,
 } from './types.js';
+import { validate as validateConfig } from './config.js';
 import * as openidClient from 'openid-client';
 const { randomPKCECodeVerifier, calculatePKCECodeChallenge, customFetch } =
   openidClient;
@@ -90,14 +92,27 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @param config - OIDC provider configuration
    */
   public constructor(config: OIDCProviderConfig) {
-    super(config);
-    this.oidcConfig = config;
+    // Validate configuration using Zod schema
+    const validatedConfig = validateConfig(config);
+
+    // Convert to base ProviderConfig format for compatibility
+    const baseConfig = {
+      clientId: validatedConfig.clientId,
+      clientSecret: validatedConfig.clientSecret,
+      scopes: validatedConfig.scopes,
+      customParameters: validatedConfig.customParameters,
+      redirectUri: validatedConfig.redirectUri,
+    } as ProviderConfig;
+
+    super(baseConfig);
+    this.oidcConfig = validatedConfig as OIDCProviderConfig;
     this.storageHook = this.enforceProductionStorage(
-      config.storageHook,
+      validatedConfig.storageHook,
       'storageHook',
       () => new MockPKCEStorageHook()
     );
-    this.pkceStateExpirationSeconds = config.pkceStateExpirationSeconds || 600; // 10 minutes default
+    this.pkceStateExpirationSeconds =
+      validatedConfig.pkceStateExpirationSeconds || 600; // 10 minutes default
   }
 
   /**
@@ -109,10 +124,10 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       this.logger.info('Starting OIDC provider initialization', {
         stage: 'initialize',
         hasIssuer: Boolean(this.oidcConfig.issuer),
-        hasMetadata: Boolean(this.oidcConfig.metadata),
+        hasMetadata: Boolean(this.oidcConfig.serverMetadata),
       });
 
-      // Validate configuration
+      // Validate storage hook shape and basic health
       this.validateConfiguration();
 
       // Validate storage hook shape and basic health
@@ -120,8 +135,10 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       // Set sane default HTTP timeouts for discovery
       this.setHttpDefaults({ timeout: 8_000 });
-      // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
-      // Timeout handling is done at the fetch level
+      if (customFetch && openidClient.customFetch) {
+        // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
+        // Timeout handling is done at the fetch level
+      }
 
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
@@ -407,8 +424,10 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       hasTokenEndpoint: Boolean(this.oidcConfig.metadata.token_endpoint),
     });
 
-    this.validateProviderMetadata(this.oidcConfig.metadata);
-    this.providerMetadata = this.oidcConfig.metadata;
+    this.validateProviderMetadata(
+      this.oidcConfig.metadata as OIDCProviderMetadata
+    );
+    this.providerMetadata = this.oidcConfig.metadata as OIDCProviderMetadata;
 
     // No discovery; client cannot be constructed without Issuer instance
   }
@@ -512,14 +531,20 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @returns Provider quirks
    */
   protected computeProviderQuirks(): import('../../types.js').ProviderQuirks {
+    // Analyze provider metadata for capabilities
+    const supportsRefreshTokens =
+      this.providerMetadata?.grant_types_supported?.includes('refresh_token') ??
+      true; // Default to true for OIDC providers
+
+    const customParameters = Object.keys(
+      this.oidcConfig.customParameters || {}
+    );
+
     return {
       supportsOIDCDiscovery: !!this.oidcConfig.issuer,
-      requiresPKCE: true,
-      supportsRefreshTokens:
-        this.providerMetadata?.grant_types_supported?.includes(
-          'refresh_token'
-        ) ?? false,
-      customParameters: Object.keys(this.oidcConfig.customParameters || {}),
+      requiresPKCE: true, // OIDC always requires PKCE for security
+      supportsRefreshTokens,
+      customParameters,
     };
   }
 }

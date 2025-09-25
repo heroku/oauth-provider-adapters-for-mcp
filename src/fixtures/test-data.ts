@@ -4,6 +4,7 @@
  */
 
 import type { ProviderConfig, TokenResponse } from '../types.js';
+import type { OIDCProviderConfig } from '../adapters/oidc-provider/types.js';
 
 // ============================================================================
 // COMMON TEST DATA
@@ -12,13 +13,9 @@ import type { ProviderConfig, TokenResponse } from '../types.js';
 export const testConfigs = {
   valid: {
     clientId: 'test-client-id',
+    clientSecret: 'test-client-secret',
     scopes: ['openid', 'profile', 'email'],
-    customParameters: { custom_param: 'custom_value' },
-  } as ProviderConfig,
-
-  minimal: {
-    clientId: 'test-client-id',
-    scopes: ['openid'],
+    redirectUri: 'https://example.com/callback',
   } as ProviderConfig,
 };
 
@@ -101,7 +98,7 @@ export const oidcMetadata = {
 
   malformed: {
     issuer: 'https://auth.example.com',
-    // Missing required authorization_endpoint
+    // Missing required authorization_endpoint to trigger validation error
     token_endpoint: 'https://auth.example.com/token',
     jwks_uri: 'https://auth.example.com/.well-known/jwks.json',
   },
@@ -139,4 +136,166 @@ export const moduleData = {
     OIDCProviderAdapter: 'function',
     default: 'object',
   },
+};
+
+// ============================================================================
+// CONFIG FACTORY FUNCTIONS
+// ============================================================================
+
+/**
+ * Base OIDC config factory with sensible defaults
+ */
+export const createOIDCConfig = (
+  overrides: Partial<OIDCProviderConfig> = {}
+): OIDCProviderConfig => ({
+  clientId: 'test-client-id',
+  issuer: 'https://accounts.google.com',
+  scopes: ['openid', 'profile', 'email'],
+  ...overrides,
+});
+
+/**
+ * OIDC config with server metadata instead of issuer
+ */
+export const createOIDCConfigWithMetadata = (
+  overrides: Partial<OIDCProviderConfig> = {}
+): OIDCProviderConfig => {
+  const { issuer: _issuer, ...rest } = overrides;
+  return {
+    clientId: 'test-client-id',
+    scopes: ['openid', 'profile', 'email'],
+    metadata: oidcMetadata.minimal,
+    ...rest,
+  };
+};
+
+/**
+ * OIDC config with client secret (confidential client)
+ */
+export const createOIDCConfigWithSecret = (
+  overrides: Partial<OIDCProviderConfig> = {}
+): OIDCProviderConfig =>
+  createOIDCConfig({
+    clientSecret: 'test-client-secret',
+    ...overrides,
+  });
+
+/**
+ * OIDC config with timeout configuration
+ */
+export const createOIDCConfigWithTimeouts = (
+  overrides: Partial<OIDCProviderConfig> = {}
+): OIDCProviderConfig =>
+  createOIDCConfig({
+    timeouts: { connect: 5000, response: 10000 },
+    ...overrides,
+  });
+
+/**
+ * OIDC config with custom parameters
+ */
+export const createOIDCConfigWithParams = (
+  overrides: Partial<OIDCProviderConfig> = {}
+): OIDCProviderConfig =>
+  createOIDCConfig({
+    customParameters: { prompt: 'login', access_type: 'offline' },
+    ...overrides,
+  });
+
+/**
+ * OIDC config with minimal scopes
+ */
+export const createOIDCConfigMinimal = (
+  overrides: Partial<OIDCProviderConfig> = {}
+): OIDCProviderConfig =>
+  createOIDCConfig({
+    scopes: ['openid'],
+    ...overrides,
+  });
+
+/**
+ * Base Provider config factory
+ */
+export const createProviderConfig = (
+  overrides: Partial<ProviderConfig> = {}
+): ProviderConfig => ({
+  clientId: 'test-client-id',
+  scopes: ['openid', 'profile', 'email'],
+  ...overrides,
+});
+
+/**
+ * Provider config with custom parameters
+ */
+export const createProviderConfigWithParams = (
+  overrides: Partial<ProviderConfig> = {}
+): ProviderConfig =>
+  createProviderConfig({
+    customParameters: { audience: 'test-audience', prompt: 'login' },
+    ...overrides,
+  });
+
+/**
+ * Minimal provider config (only required fields)
+ */
+export const createProviderConfigMinimal = (
+  overrides: Partial<ProviderConfig> = {}
+): ProviderConfig => ({
+  clientId: 'minimal-client',
+  scopes: ['read'],
+  ...overrides,
+});
+
+// ============================================================================
+// INVALID CONFIG FACTORIES (for error testing)
+// ============================================================================
+
+/**
+ * Creates invalid OIDC configs for testing validation errors
+ */
+export const createInvalidOIDCConfig = (
+  type:
+    | 'missing-client-id'
+    | 'invalid-issuer'
+    | 'both-issuer-metadata'
+    | 'empty-client-id'
+    | 'malformed-metadata'
+    | 'invalid-timeout'
+): Partial<OIDCProviderConfig> => {
+  switch (type) {
+    case 'missing-client-id':
+      return { scopes: ['openid'] };
+    case 'invalid-issuer':
+      return {
+        clientId: 'test-client-id',
+        issuer: 'not-a-valid-url',
+        scopes: ['openid'],
+      };
+    case 'both-issuer-metadata':
+      return {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        metadata: oidcMetadata.minimal,
+        scopes: ['openid'],
+      };
+    case 'empty-client-id':
+      return {
+        clientId: '',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+      };
+    case 'malformed-metadata':
+      return {
+        clientId: 'test-client-id',
+        metadata: oidcMetadata.malformed as any,
+        scopes: ['openid'],
+      };
+    case 'invalid-timeout':
+      return {
+        clientId: 'test-client-id',
+        issuer: 'https://accounts.google.com',
+        scopes: ['openid'],
+        timeouts: { connect: -1000, response: 'invalid' as any },
+      };
+  }
 };

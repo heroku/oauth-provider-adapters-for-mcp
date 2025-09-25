@@ -3,6 +3,7 @@
  */
 
 export { OIDCProviderAdapter } from './oidc-adapter.js';
+export { validate, safeValidate, OIDCProviderConfigSchema } from './config.js';
 export type {
   OIDCProviderConfig,
   OIDCProviderMetadata,

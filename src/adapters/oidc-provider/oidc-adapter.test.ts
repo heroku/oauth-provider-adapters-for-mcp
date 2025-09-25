@@ -9,11 +9,13 @@ import sinon from 'sinon';
 import { OIDCProviderAdapter } from './oidc-adapter.js';
 import {
   oidcMetadata,
-  testConfigs,
+  createOIDCConfigWithMetadata,
   authUrlData,
+  testConfigs,
 } from '../../fixtures/test-data.js';
 import {
   expectOAuthError,
+  expectToThrow,
   setupSinonStubs,
   createTestAdapter,
 } from '../../testUtils/testHelpers.js';
@@ -31,10 +33,7 @@ describe('OIDCProviderAdapter', function () {
 
   describe('initialization', function () {
     it('should initialize with static metadata', async function () {
-      const config = {
-        ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
-      };
+      const config = createOIDCConfigWithMetadata();
 
       const adapter = new OIDCProviderAdapter(config);
       await adapter.initialize();
@@ -49,23 +48,30 @@ describe('OIDCProviderAdapter', function () {
         metadata: oidcMetadata.minimal,
       };
 
-      const adapter = new OIDCProviderAdapter(config);
-
-      await expectOAuthError(() => adapter.initialize(), 'invalid_request');
+      expectToThrow(
+        () => new OIDCProviderAdapter(config),
+        'clientId is required'
+      );
     });
 
     it('should throw error for missing authorization endpoint', async function () {
-      const adapter = createTestAdapter({
-        metadata: oidcMetadata.malformed as any,
-      });
-
-      await expectOAuthError(() => adapter.initialize(), 'invalid_request');
+      expectToThrow(
+        () =>
+          createTestAdapter({
+            metadata: oidcMetadata.malformed as any,
+          }),
+        'Invalid input: expected string, received undefined'
+      );
     });
 
     it('should throw error when scopes are missing or empty', async function () {
-      const adapter = createTestAdapter({
+      const config = {
+        clientId: 'test-client-id',
         scopes: [],
-      });
+        metadata: oidcMetadata.minimal,
+      };
+
+      const adapter = new OIDCProviderAdapter(config as any);
 
       await expectOAuthError(
         () => adapter.initialize(),
@@ -80,17 +86,10 @@ describe('OIDCProviderAdapter', function () {
         scopes: ['openid'],
       };
 
-      const adapter = new OIDCProviderAdapter(config as any);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-        expect(err.error_description).to.include(
-          'Either issuer or metadata must be provided'
-        );
-      }
+      expectToThrow(
+        () => new OIDCProviderAdapter(config as any),
+        'Provide exactly one of `issuer` or `metadata`'
+      );
     });
 
     it('should throw error when both issuer and metadata are provided', async function () {
@@ -101,17 +100,10 @@ describe('OIDCProviderAdapter', function () {
         metadata: oidcMetadata.minimal,
       };
 
-      const adapter = new OIDCProviderAdapter(config as any);
-
-      try {
-        await adapter.initialize();
-        expect.fail('Expected to throw');
-      } catch (err: any) {
-        expect(err.error).to.equal('invalid_request');
-        expect(err.error_description).to.include(
-          'Cannot specify both issuer and metadata'
-        );
-      }
+      expectToThrow(
+        () => new OIDCProviderAdapter(config as any),
+        'Provide exactly one of `issuer` or `metadata`'
+      );
     });
   });
 
@@ -183,10 +175,7 @@ describe('OIDCProviderAdapter', function () {
 
   describe('Provider Quirks', function () {
     it('should compute quirks with static metadata', async function () {
-      const config = {
-        ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
-      };
+      const config = createOIDCConfigWithMetadata();
 
       const adapter = new OIDCProviderAdapter(config);
       await adapter.initialize();
@@ -224,7 +213,8 @@ describe('OIDCProviderAdapter', function () {
 
     it('should include custom parameters in quirks', async function () {
       const config = {
-        ...testConfigs.valid,
+        clientId: 'test-client-id',
+        scopes: ['openid', 'profile', 'email'],
         metadata: oidcMetadata.minimal,
         customParameters: {
           custom_param: 'custom_value',
@@ -399,10 +389,124 @@ describe('OIDCProviderAdapter', function () {
 
   describe('Error Handling', function () {
     it('should handle invalid redirect URL', async function () {
+      const incompleteStorageHook = {
+        storePKCEState: sinon.stub().resolves(),
+      };
+
       const config = {
         ...testConfigs.valid,
         metadata: oidcMetadata.minimal,
+        storageHook: incompleteStorageHook as any,
       };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include('storageHook must implement');
+        expect(err.error_description).to.include('storePKCEState');
+        expect(err.error_description).to.include('retrievePKCEState');
+        expect(err.error_description).to.include('cleanupExpiredState');
+      }
+    });
+
+    it('should validate storage hook methods are functions', async function () {
+      const invalidStorageHook = {
+        storePKCEState: 'not-a-function',
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: sinon.stub().resolves(),
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: invalidStorageHook as any,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error).to.equal('invalid_request');
+        expect(err.error_description).to.include('storageHook must implement');
+      }
+    });
+
+    it('should perform health check on cleanupExpiredState', async function () {
+      const cleanupStub = sinon.stub().resolves();
+      const validStorageHook = {
+        storePKCEState: sinon.stub().resolves(),
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: cleanupStub,
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: validStorageHook,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+      await adapter.initialize();
+
+      // Verify cleanupExpiredState was called during validation
+      expect(cleanupStub.calledOnce).to.be.true;
+      expect(cleanupStub.firstCall.args[0]).to.be.a('number');
+    });
+
+    it('should handle cleanupExpiredState health check failures', async function () {
+      const failingCleanupHook = {
+        storePKCEState: sinon.stub().resolves(),
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: sinon.stub().rejects(new Error('Cleanup failed')),
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: failingCleanupHook,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      try {
+        await adapter.initialize();
+        expect.fail('Expected to throw');
+      } catch (err: any) {
+        expect(err.error_description).to.include('Cleanup failed');
+        expect(err.endpoint).to.equal('storageHook.cleanupExpiredState');
+      }
+    });
+
+    it('should accept valid storage hook', async function () {
+      const validStorageHook = {
+        storePKCEState: sinon.stub().resolves(),
+        retrievePKCEState: sinon.stub().resolves(null),
+        cleanupExpiredState: sinon.stub().resolves(),
+      };
+
+      const config = {
+        ...testConfigs.valid,
+        metadata: oidcMetadata.minimal,
+        storageHook: validStorageHook,
+      };
+
+      const adapter = new OIDCProviderAdapter(config);
+
+      // Should not throw
+      await adapter.initialize();
+      expect(adapter.getProviderMetadata()).to.exist;
+    });
+  });
+
+  describe('Error Handling', function () {
+    it('should handle invalid redirect URL', async function () {
+      const config = createOIDCConfigWithMetadata();
 
       const adapter = new OIDCProviderAdapter(config);
       await adapter.initialize();
@@ -424,11 +528,9 @@ describe('OIDCProviderAdapter', function () {
         cleanupExpiredState: sinon.stub().resolves(),
       };
 
-      const config = {
-        ...testConfigs.valid,
-        metadata: oidcMetadata.minimal,
+      const config = createOIDCConfigWithMetadata({
         storageHook: failingStorageHook,
-      };
+      });
 
       const adapter = new OIDCProviderAdapter(config);
       await adapter.initialize();
