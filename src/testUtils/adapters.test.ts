@@ -8,7 +8,6 @@ import {
   RefreshTokenTestAdapter,
   MemoizationTestAdapter,
 } from './adapters.js';
-import { createProviderConfig } from '../fixtures/test-data.js';
 
 describe('Test Adapters', () => {
   const mockConfig: ProviderConfig = testConfigs.valid;

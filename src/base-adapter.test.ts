@@ -10,7 +10,6 @@ import {
 } from './testUtils/adapters.js';
 import { DefaultLogger } from './logging/logger.js';
 import {
-  createProviderConfig,
   createProviderConfigWithParams,
   createProviderConfigMinimal,
 } from './fixtures/test-data.js';

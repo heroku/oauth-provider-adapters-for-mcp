@@ -128,6 +128,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       });
 
       // Configuration is already validated in constructor
+      this.validateConfiguration();
 
       // Validate storage hook shape and basic health
       await this.validateStorageHook();
@@ -138,14 +139,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
         // Timeout handling is done at the fetch level
       }
-
-      // Validate storage hook shape and basic health
-      await this.validateStorageHook();
-
-      // Set sane default HTTP timeouts for discovery
-      this.setHttpDefaults({ timeout: 8_000 });
-      // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
-      // Timeout handling is done at the fetch level
 
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
