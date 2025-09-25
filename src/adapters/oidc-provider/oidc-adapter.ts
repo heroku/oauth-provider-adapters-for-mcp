@@ -120,10 +120,8 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
 
       // Set sane default HTTP timeouts for discovery
       this.setHttpDefaults({ timeout: 8_000 });
-      if (customFetch && openidClient.customFetch) {
-        // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
-        // Timeout handling is done at the fetch level
-      }
+      // Note: customFetch in openid-client v6+ doesn't have setHttpOptionsDefaults
+      // Timeout handling is done at the fetch level
 
       // Perform discovery or use static metadata
       if (this.oidcConfig.issuer) {
