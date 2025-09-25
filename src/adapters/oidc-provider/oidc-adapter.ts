@@ -479,7 +479,6 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     }
   }
 
-
   /**
    * Exchange authorization code for access token
    * @param code - Authorization code from callback
