@@ -160,3 +160,24 @@ export interface OIDCAuthUrlResult {
   /** Challenge method used */
   codeChallengeMethod: 'S256';
 }
+
+/**
+ * Raw token response from OIDC provider before normalization
+ * Represents the JSON response body from the token endpoint
+ */
+export interface RawTokenResponse {
+  /** OAuth access token (required in all responses) */
+  access_token: string;
+  /** Token type (typically "Bearer") */
+  token_type?: string;
+  /** Token expiration time in seconds */
+  expires_in?: number;
+  /** OAuth refresh token (if supported and requested) */
+  refresh_token?: string;
+  /** OIDC ID token (if requested with openid scope) */
+  id_token?: string;
+  /** Granted scopes (may differ from requested) */
+  scope?: string;
+  /** Additional provider-specific fields */
+  [key: string]: unknown;
+}

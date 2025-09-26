@@ -187,10 +187,11 @@ export abstract class BaseOAuthAdapter {
    *   via {@link normalizeError} with context (e.g., endpoint: '/token')
    * @param refreshToken - The refresh token to exchange
    * @returns A normalized token response
+   */
   public abstract refreshToken(refreshToken: string): Promise<TokenResponse>;
 
   /**
-  * Return provider-specific capability flags and quirks. Lazily memoizes
+   * Return provider-specific capability flags and quirks. Lazily memoizes
    * the result of {@link computeProviderQuirks}. This method performs no
    * network I/O.
    *

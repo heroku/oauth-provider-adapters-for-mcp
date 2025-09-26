@@ -12,6 +12,8 @@ import type {
 } from './types.js';
 import { validate as validateConfig } from './config.js';
 import * as openidClient from 'openid-client';
+import { TokenExchangeService } from './token-exchange.js';
+import { OIDC_CONSTANTS, validateProviderMetadata } from './utils.js';
 const { randomPKCECodeVerifier, calculatePKCECodeChallenge, customFetch } =
   openidClient;
 
@@ -80,10 +82,8 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   /** PKCE state expiration time in seconds */
   private readonly pkceStateExpirationSeconds: number;
 
-  private static readonly DISCOVERY_MAX_RETRIES = 2; // total attempts = 1 + retries
-  private static readonly DISCOVERY_BACKOFF_MS = 300; // base backoff
-  private static readonly CIRCUIT_FAILURE_THRESHOLD = 3;
-  private static readonly CIRCUIT_OPEN_MS = 60_000; // 60s
+  /** Token exchange service */
+  private tokenExchangeService?: TokenExchangeService;
 
   // Note: initialized property is inherited from BaseOAuthAdapter
 
@@ -378,18 +378,38 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       },
       {
         endpoint: discoveryUrl,
-        maxRetries: OIDCProviderAdapter.DISCOVERY_MAX_RETRIES,
-        backoffMs: OIDCProviderAdapter.DISCOVERY_BACKOFF_MS,
+        maxRetries: OIDC_CONSTANTS.DISCOVERY_MAX_RETRIES,
+        backoffMs: OIDC_CONSTANTS.DISCOVERY_BACKOFF_MS,
         circuitKey: issuer,
-        failureThreshold: OIDCProviderAdapter.CIRCUIT_FAILURE_THRESHOLD,
-        circuitOpenMs: OIDCProviderAdapter.CIRCUIT_OPEN_MS,
+        failureThreshold: OIDC_CONSTANTS.CIRCUIT_FAILURE_THRESHOLD,
+        circuitOpenMs: OIDC_CONSTANTS.CIRCUIT_OPEN_MS,
       }
     )) as OIDCProviderMetadata;
 
     // Validate required endpoints
-    this.validateProviderMetadata(metadata);
+    try {
+      validateProviderMetadata(metadata);
+    } catch (error) {
+      throw this.createStandardError(
+        'invalid_request',
+        error instanceof Error ? error.message : String(error),
+        {
+          stage: 'initialize',
+          issuer: metadata.issuer,
+        }
+      );
+    }
 
     this.providerMetadata = metadata;
+
+    // Initialize token exchange service
+    this.tokenExchangeService = new TokenExchangeService(
+      this.oidcConfig,
+      this.providerMetadata,
+      this.logger,
+      this.createStandardError.bind(this),
+      this.normalizeError.bind(this)
+    );
 
     this.logger.info('OIDC discovery completed successfully', {
       stage: 'discovery',
@@ -424,50 +444,34 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       hasTokenEndpoint: Boolean(this.oidcConfig.metadata.token_endpoint),
     });
 
-    this.validateProviderMetadata(
-      this.oidcConfig.metadata as OIDCProviderMetadata
-    );
+    try {
+      validateProviderMetadata(
+        this.oidcConfig.metadata as OIDCProviderMetadata
+      );
+    } catch (error) {
+      throw this.createStandardError(
+        'invalid_request',
+        error instanceof Error ? error.message : String(error),
+        Object.assign(
+          { stage: 'initialize' as const },
+          this.oidcConfig.metadata?.issuer && {
+            issuer: String(this.oidcConfig.metadata.issuer),
+          }
+        )
+      );
+    }
     this.providerMetadata = this.oidcConfig.metadata as OIDCProviderMetadata;
 
+    // Initialize token exchange service
+    this.tokenExchangeService = new TokenExchangeService(
+      this.oidcConfig,
+      this.providerMetadata,
+      this.logger,
+      this.createStandardError.bind(this),
+      this.normalizeError.bind(this)
+    );
+
     // No discovery; client cannot be constructed without Issuer instance
-  }
-
-  /**
-   * Validate provider metadata has required endpoints
-   */
-  private validateProviderMetadata(metadata: OIDCProviderMetadata): void {
-    if (!metadata.authorization_endpoint) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Missing authorization_endpoint in provider metadata',
-        {
-          stage: 'initialize',
-          issuer: metadata.issuer,
-        }
-      );
-    }
-
-    if (!metadata.token_endpoint) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Missing token_endpoint in provider metadata',
-        {
-          stage: 'initialize',
-          issuer: metadata.issuer,
-        }
-      );
-    }
-
-    if (!metadata.jwks_uri) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Missing jwks_uri in provider metadata',
-        {
-          stage: 'initialize',
-          issuer: metadata.issuer,
-        }
-      );
-    }
   }
 
   /**
@@ -506,12 +510,31 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @returns Token response
    */
   public async exchangeCode(
-    _code: string,
-    _verifier: string,
-    _redirectUrl: string
+    code: string,
+    verifier: string,
+    redirectUrl: string
   ): Promise<import('../../types.js').TokenResponse> {
-    // TODO: Implement OIDC token exchange
-    throw new Error('exchangeCode not yet implemented');
+    if (!this.initialized) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Adapter must be initialized before exchanging code',
+        {
+          stage: 'exchangeCode',
+        }
+      );
+    }
+
+    if (!this.tokenExchangeService) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Token exchange service not initialized',
+        {
+          stage: 'exchangeCode',
+        }
+      );
+    }
+
+    return this.tokenExchangeService.exchangeCode(code, verifier, redirectUrl);
   }
 
   /**
@@ -520,10 +543,29 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @returns New token response
    */
   public async refreshToken(
-    _refreshToken: string
+    refreshToken: string
   ): Promise<import('../../types.js').TokenResponse> {
-    // TODO: Implement OIDC token refresh
-    throw new Error('refreshToken not yet implemented');
+    if (!this.initialized) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Adapter must be initialized before refreshing token',
+        {
+          stage: 'refreshToken',
+        }
+      );
+    }
+
+    if (!this.tokenExchangeService) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Token exchange service not initialized',
+        {
+          stage: 'refreshToken',
+        }
+      );
+    }
+
+    return this.tokenExchangeService.refreshToken(refreshToken);
   }
 
   /**
@@ -534,7 +576,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     // Analyze provider metadata for capabilities
     const supportsRefreshTokens =
       this.providerMetadata?.grant_types_supported?.includes('refresh_token') ??
-      true; // Default to true for OIDC providers
+      true; // Default to true: most OIDC providers support refresh tokens, and absence of metadata does not imply lack of support
 
     const customParameters = Object.keys(
       this.oidcConfig.customParameters || {}
