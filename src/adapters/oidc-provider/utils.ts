@@ -3,6 +3,7 @@
  */
 
 import type { OIDCProviderMetadata, RawTokenResponse } from './types.js';
+import type { OAuthError } from '../../types.js';
 
 /**
  * Constants for OIDC discovery and resilience
