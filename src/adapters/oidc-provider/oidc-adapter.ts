@@ -12,6 +12,8 @@ import type {
 } from './types.js';
 import { validate as validateConfig } from './config.js';
 import * as openidClient from 'openid-client';
+import { TokenExchangeService } from './token-exchange.js';
+import { OIDC_CONSTANTS, validateProviderMetadata } from './utils.js';
 const { randomPKCECodeVerifier, calculatePKCECodeChallenge, customFetch } =
   openidClient;
 
@@ -80,10 +82,8 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
   /** PKCE state expiration time in seconds */
   private readonly pkceStateExpirationSeconds: number;
 
-  private static readonly DISCOVERY_MAX_RETRIES = 2; // total attempts = 1 + retries
-  private static readonly DISCOVERY_BACKOFF_MS = 300; // base backoff
-  private static readonly CIRCUIT_FAILURE_THRESHOLD = 3;
-  private static readonly CIRCUIT_OPEN_MS = 60_000; // 60s
+  /** Token exchange service */
+  private tokenExchangeService?: TokenExchangeService;
 
   // Note: initialized property is inherited from BaseOAuthAdapter
 
@@ -378,18 +378,38 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       },
       {
         endpoint: discoveryUrl,
-        maxRetries: OIDCProviderAdapter.DISCOVERY_MAX_RETRIES,
-        backoffMs: OIDCProviderAdapter.DISCOVERY_BACKOFF_MS,
+        maxRetries: OIDC_CONSTANTS.DISCOVERY_MAX_RETRIES,
+        backoffMs: OIDC_CONSTANTS.DISCOVERY_BACKOFF_MS,
         circuitKey: issuer,
-        failureThreshold: OIDCProviderAdapter.CIRCUIT_FAILURE_THRESHOLD,
-        circuitOpenMs: OIDCProviderAdapter.CIRCUIT_OPEN_MS,
+        failureThreshold: OIDC_CONSTANTS.CIRCUIT_FAILURE_THRESHOLD,
+        circuitOpenMs: OIDC_CONSTANTS.CIRCUIT_OPEN_MS,
       }
     )) as OIDCProviderMetadata;
 
     // Validate required endpoints
-    this.validateProviderMetadata(metadata);
+    try {
+      validateProviderMetadata(metadata);
+    } catch (error) {
+      throw this.createStandardError(
+        'invalid_request',
+        error instanceof Error ? error.message : String(error),
+        {
+          stage: 'initialize',
+          issuer: metadata.issuer,
+        }
+      );
+    }
 
     this.providerMetadata = metadata;
+
+    // Initialize token exchange service
+    this.tokenExchangeService = new TokenExchangeService(
+      this.oidcConfig,
+      this.providerMetadata,
+      this.logger,
+      this.createStandardError.bind(this),
+      this.normalizeError.bind(this)
+    );
 
     this.logger.info('OIDC discovery completed successfully', {
       stage: 'discovery',
@@ -424,50 +444,34 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       hasTokenEndpoint: Boolean(this.oidcConfig.metadata.token_endpoint),
     });
 
-    this.validateProviderMetadata(
-      this.oidcConfig.metadata as OIDCProviderMetadata
-    );
+    try {
+      validateProviderMetadata(
+        this.oidcConfig.metadata as OIDCProviderMetadata
+      );
+    } catch (error) {
+      throw this.createStandardError(
+        'invalid_request',
+        error instanceof Error ? error.message : String(error),
+        Object.assign(
+          { stage: 'initialize' as const },
+          this.oidcConfig.metadata?.issuer && {
+            issuer: String(this.oidcConfig.metadata.issuer),
+          }
+        )
+      );
+    }
     this.providerMetadata = this.oidcConfig.metadata as OIDCProviderMetadata;
 
+    // Initialize token exchange service
+    this.tokenExchangeService = new TokenExchangeService(
+      this.oidcConfig,
+      this.providerMetadata,
+      this.logger,
+      this.createStandardError.bind(this),
+      this.normalizeError.bind(this)
+    );
+
     // No discovery; client cannot be constructed without Issuer instance
-  }
-
-  /**
-   * Validate provider metadata has required endpoints
-   */
-  private validateProviderMetadata(metadata: OIDCProviderMetadata): void {
-    if (!metadata.authorization_endpoint) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Missing authorization_endpoint in provider metadata',
-        {
-          stage: 'initialize',
-          issuer: metadata.issuer,
-        }
-      );
-    }
-
-    if (!metadata.token_endpoint) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Missing token_endpoint in provider metadata',
-        {
-          stage: 'initialize',
-          issuer: metadata.issuer,
-        }
-      );
-    }
-
-    if (!metadata.jwks_uri) {
-      throw this.createStandardError(
-        'invalid_request',
-        'Missing jwks_uri in provider metadata',
-        {
-          stage: 'initialize',
-          issuer: metadata.issuer,
-        }
-      );
-    }
   }
 
   /**
@@ -520,136 +524,17 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       );
     }
 
-    if (!this.providerMetadata?.token_endpoint) {
+    if (!this.tokenExchangeService) {
       throw this.createStandardError(
         'invalid_request',
-        'Token endpoint not available',
+        'Token exchange service not initialized',
         {
           stage: 'exchangeCode',
-          ...(this.providerMetadata?.issuer && {
-            issuer: this.providerMetadata.issuer,
-          }),
         }
       );
     }
 
-    try {
-      this.logger.info('Exchanging authorization code for tokens', {
-        stage: 'exchangeCode',
-        issuer: this.providerMetadata.issuer,
-        endpoint: this.providerMetadata.token_endpoint,
-      });
-
-      // Build token request parameters
-      const tokenParams = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        code_verifier: verifier,
-        redirect_uri: redirectUrl,
-        client_id: this.oidcConfig.clientId,
-      });
-
-      // Add client_secret if provided (for confidential clients)
-      if (this.oidcConfig.clientSecret) {
-        tokenParams.append('client_secret', this.oidcConfig.clientSecret);
-      }
-
-      // Make token exchange request
-      const response = await fetch(this.providerMetadata.token_endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
-        body: tokenParams.toString(),
-      });
-
-      let responseData: any;
-      try {
-        responseData = await response.json();
-      } catch {
-        throw this.createStandardError(
-          'server_error',
-          'Invalid JSON response from token endpoint',
-          {
-            stage: 'exchangeCode',
-            issuer: this.providerMetadata.issuer,
-            endpoint: 'token_endpoint',
-          }
-        );
-      }
-
-      // Handle OAuth error responses
-      if (!response.ok) {
-        throw this.createStandardError(
-          responseData.error || 'server_error',
-          responseData.error_description ||
-            `Token exchange failed: ${response.status} ${response.statusText}`,
-          {
-            stage: 'exchangeCode',
-            issuer: this.providerMetadata.issuer,
-            endpoint: 'token_endpoint',
-          }
-        );
-      }
-
-      // Validate required access_token field
-      if (!responseData.access_token) {
-        throw this.createStandardError(
-          'server_error',
-          'Missing access_token in provider response',
-          {
-            stage: 'exchangeCode',
-            issuer: this.providerMetadata.issuer,
-            endpoint: 'token_endpoint',
-          }
-        );
-      }
-
-      // Normalize scope field
-      const normalizedScope = this.normalizeScope(responseData.scope);
-
-      // Extract additional provider fields for userData
-      const userData = this.extractUserData(responseData);
-
-      const tokenResponse: import('../../types.js').TokenResponse = {
-        accessToken: responseData.access_token,
-        ...(responseData.refresh_token && {
-          refreshToken: responseData.refresh_token,
-        }),
-        ...(responseData.id_token && { idToken: responseData.id_token }),
-        ...(responseData.expires_in && { expiresIn: responseData.expires_in }),
-        scope: normalizedScope,
-        ...(userData && { userData }),
-      };
-
-      this.logger.info('Authorization code exchange completed successfully', {
-        stage: 'exchangeCode',
-        issuer: this.providerMetadata.issuer,
-        endpoint: this.providerMetadata.token_endpoint,
-        hasRefreshToken: Boolean(tokenResponse.refreshToken),
-        hasIdToken: Boolean(tokenResponse.idToken),
-        expiresIn: tokenResponse.expiresIn,
-      });
-
-      return tokenResponse;
-    } catch (error) {
-      this.logger.error('Authorization code exchange failed', {
-        stage: 'exchangeCode',
-        issuer: this.providerMetadata?.issuer,
-        endpoint: this.providerMetadata?.token_endpoint,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      // Re-throw if already normalized
-      if (error && typeof error === 'object' && 'error' in error) {
-        throw error;
-      }
-
-      throw this.normalizeError(error, {
-        endpoint: 'token_endpoint',
-      });
-    }
+    return this.tokenExchangeService.exchangeCode(code, verifier, redirectUrl);
   }
 
   /**
@@ -670,203 +555,17 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       );
     }
 
-    if (!this.providerMetadata?.token_endpoint) {
+    if (!this.tokenExchangeService) {
       throw this.createStandardError(
         'invalid_request',
-        'Token endpoint not available',
+        'Token exchange service not initialized',
         {
           stage: 'refreshToken',
-          ...(this.providerMetadata?.issuer && {
-            issuer: this.providerMetadata.issuer,
-          }),
         }
       );
     }
 
-    try {
-      this.logger.info('Refreshing access token', {
-        stage: 'refreshToken',
-        issuer: this.providerMetadata.issuer,
-        endpoint: this.providerMetadata.token_endpoint,
-      });
-
-      // Build token refresh request parameters
-      const tokenParams = new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: this.oidcConfig.clientId,
-      });
-
-      // Add client_secret if provided (for confidential clients)
-      if (this.oidcConfig.clientSecret) {
-        tokenParams.append('client_secret', this.oidcConfig.clientSecret);
-      }
-
-      // Make token refresh request
-      const response = await fetch(this.providerMetadata.token_endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
-        body: tokenParams.toString(),
-      });
-
-      let responseData: any;
-      try {
-        responseData = await response.json();
-      } catch {
-        throw this.createStandardError(
-          'server_error',
-          'Invalid JSON response from token endpoint',
-          {
-            stage: 'refreshToken',
-            issuer: this.providerMetadata.issuer,
-            endpoint: 'token_endpoint',
-          }
-        );
-      }
-
-      // Handle OAuth error responses
-      if (!response.ok) {
-        throw this.createStandardError(
-          responseData.error || 'server_error',
-          responseData.error_description ||
-            `Token refresh failed: ${response.status} ${response.statusText}`,
-          {
-            stage: 'refreshToken',
-            issuer: this.providerMetadata.issuer,
-            endpoint: 'token_endpoint',
-          }
-        );
-      }
-
-      // Validate required access_token field
-      if (!responseData.access_token) {
-        throw this.createStandardError(
-          'server_error',
-          'Missing access_token in provider response',
-          {
-            stage: 'refreshToken',
-            issuer: this.providerMetadata.issuer,
-            endpoint: 'token_endpoint',
-          }
-        );
-      }
-
-      // Normalize scope field
-      const normalizedScope = this.normalizeScope(responseData.scope);
-
-      // Extract additional provider fields for userData
-      const userData = this.extractUserData(responseData);
-
-      const tokenResponse: import('../../types.js').TokenResponse = {
-        accessToken: responseData.access_token,
-        ...(responseData.refresh_token && {
-          refreshToken: responseData.refresh_token,
-        }),
-        ...(responseData.id_token && { idToken: responseData.id_token }),
-        ...(responseData.expires_in && { expiresIn: responseData.expires_in }),
-        scope: normalizedScope,
-        ...(userData && { userData }),
-      };
-
-      this.logger.info('Token refresh completed successfully', {
-        stage: 'refreshToken',
-        issuer: this.providerMetadata.issuer,
-        endpoint: this.providerMetadata.token_endpoint,
-        hasNewRefreshToken: Boolean(tokenResponse.refreshToken),
-        hasIdToken: Boolean(tokenResponse.idToken),
-        expiresIn: tokenResponse.expiresIn,
-      });
-
-      return tokenResponse;
-    } catch (error) {
-      this.logger.error('Token refresh failed', {
-        stage: 'refreshToken',
-        issuer: this.providerMetadata?.issuer,
-        endpoint: this.providerMetadata?.token_endpoint,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      // Re-throw if already normalized
-      if (error && typeof error === 'object' && 'error' in error) {
-        throw error;
-      }
-
-      throw this.normalizeError(error, {
-        endpoint: 'token_endpoint',
-      });
-    }
-  }
-
-  /**
-   * Normalize scope string from provider response
-   * Handles both space-delimited and comma-delimited scopes
-   * Falls back to configured scopes if provider response is empty
-   */
-  private normalizeScope(providerScope?: string): string {
-    // If provider returned a scope, normalize it
-    if (providerScope && providerScope.trim()) {
-      // Handle both comma-delimited and space-delimited scopes
-      const scopes = providerScope
-        .split(/[,\s]+/) // Split on comma or whitespace
-        .map((scope) => scope.trim()) // Trim each scope
-        .filter((scope) => scope.length > 0); // Remove empty strings
-
-      if (scopes.length > 0) {
-        return scopes.join(' ');
-      }
-    }
-
-    // Fallback to configured scopes if provider didn't return any
-    return this.oidcConfig.scopes.join(' ');
-  }
-
-  /**
-   * Extract additional non-sensitive provider response fields as userData
-   * Filters out standard OAuth fields and sensitive data
-   */
-  private extractUserData(
-    responseData: any
-  ): Record<string, unknown> | undefined {
-    // Standard OAuth/OIDC fields that should not be in userData
-    const standardFields = new Set([
-      'access_token',
-      'refresh_token',
-      'id_token',
-      'expires_in',
-      'scope',
-    ]);
-
-    // Sensitive fields that should never be exposed
-    const sensitiveFields = new Set([
-      'client_secret',
-      'code_verifier',
-      'authorization_code',
-      'code',
-    ]);
-
-    const userData: Record<string, unknown> = {};
-    let hasData = false;
-
-    for (const [key, value] of Object.entries(responseData)) {
-      // Skip standard OAuth fields
-      if (standardFields.has(key)) {
-        continue;
-      }
-
-      // Skip sensitive fields for security
-      if (sensitiveFields.has(key)) {
-        continue;
-      }
-
-      // Include additional provider-specific fields
-      userData[key] = value;
-      hasData = true;
-    }
-
-    return hasData ? userData : undefined;
+    return this.tokenExchangeService.refreshToken(refreshToken);
   }
 
   /**
