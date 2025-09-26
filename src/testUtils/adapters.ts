@@ -186,6 +186,7 @@ export class ConfigurableTestAdapter extends BaseOAuthAdapter {
  */
 export class TokenMappingTestAdapter extends BaseOAuthAdapter {
   public async initialize(): Promise<void> {
+    this.initialized = true;
     return;
   }
 
@@ -248,6 +249,7 @@ export class TokenMappingTestAdapter extends BaseOAuthAdapter {
  */
 export class ErrorThrowingTestAdapter extends BaseOAuthAdapter {
   public async initialize(): Promise<void> {
+    this.initialized = true;
     return;
   }
 
@@ -324,6 +326,7 @@ export class RefreshTokenTestAdapter extends BaseOAuthAdapter {
   }
 
   public async initialize(): Promise<void> {
+    this.initialized = true;
     return;
   }
 
@@ -390,6 +393,7 @@ export class MemoizationTestAdapter extends BaseOAuthAdapter {
   private _quirksCallCount = 0;
 
   public async initialize(): Promise<void> {
+    this.initialized = true;
     return;
   }
 
