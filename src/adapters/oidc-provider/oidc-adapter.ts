@@ -576,7 +576,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
     // Analyze provider metadata for capabilities
     const supportsRefreshTokens =
       this.providerMetadata?.grant_types_supported?.includes('refresh_token') ??
-      false; // Default to false when unknown to satisfy strict tests
+      true; // Default to true: most OIDC providers support refresh tokens, and absence of metadata does not imply lack of support
 
     const customParameters = Object.keys(
       this.oidcConfig.customParameters || {}
