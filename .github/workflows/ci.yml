@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [20.x, 22.x, 24.x]
         os: [sfdc-hk-ubuntu-latest]
 
     steps:
@@ -18,5 +18,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          check-latest: true
       - run: npm ci
       - run: npm test
