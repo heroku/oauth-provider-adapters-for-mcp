@@ -2,7 +2,7 @@
  * Shared utilities for OIDC Provider Adapter
  */
 
-import type { OIDCProviderMetadata } from './types.js';
+import type { OIDCProviderMetadata, RawTokenResponse } from './types.js';
 
 /**
  * Constants for OIDC discovery and resilience
@@ -66,7 +66,7 @@ export function normalizeScope(
  * Filters out standard OAuth fields and sensitive data
  */
 export function extractUserData(
-  responseData: any
+  responseData: RawTokenResponse
 ): Record<string, unknown> | undefined {
   const userData: Record<string, unknown> = {};
   let hasData = false;
@@ -105,4 +105,20 @@ export function validateProviderMetadata(metadata: OIDCProviderMetadata): void {
   if (!metadata.jwks_uri) {
     throw new Error('Missing jwks_uri in provider metadata');
   }
+}
+
+/**
+ * Type guard to check if an error is already a normalized OAuthError
+ * Uses the same logic as ErrorNormalizer.tryOAuthErrorShape() to detect
+ * objects that have both 'error' and 'statusCode' properties
+ */
+export function isNormalizedOAuthError(error: unknown): error is OAuthError {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'error' in error &&
+    typeof (error as any).error === 'string' &&
+    ('statusCode' in error || 'status' in error) &&
+    typeof ((error as any).statusCode ?? (error as any).status) === 'number'
+  );
 }

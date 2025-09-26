@@ -3,8 +3,16 @@
  */
 
 import type { TokenResponse, OAuthError } from '../../types.js';
-import type { OIDCProviderConfig, OIDCProviderMetadata } from './types.js';
-import { normalizeScope, extractUserData } from './utils.js';
+import type {
+  OIDCProviderConfig,
+  OIDCProviderMetadata,
+  RawTokenResponse,
+} from './types.js';
+import {
+  normalizeScope,
+  extractUserData,
+  isNormalizedOAuthError,
+} from './utils.js';
 
 /**
  * Token exchange service for OIDC operations
@@ -133,8 +141,8 @@ export class TokenExchangeService {
         error: error instanceof Error ? error.message : String(error),
       });
 
-      // Re-throw if already normalized
-      if (error && typeof error === 'object' && 'error' in error) {
+      // Re-throw if already normalized OAuthError
+      if (isNormalizedOAuthError(error)) {
         throw error;
       }
 
@@ -244,8 +252,8 @@ export class TokenExchangeService {
         error: error instanceof Error ? error.message : String(error),
       });
 
-      // Re-throw if already normalized
-      if (error && typeof error === 'object' && 'error' in error) {
+      // Re-throw if already normalized OAuthError
+      if (isNormalizedOAuthError(error)) {
         throw error;
       }
 
@@ -280,7 +288,7 @@ export class TokenExchangeService {
   /**
    * Build normalized token response from provider data
    */
-  private buildTokenResponse(responseData: any): TokenResponse {
+  private buildTokenResponse(responseData: RawTokenResponse): TokenResponse {
     // Normalize scope field
     const normalizedScope = normalizeScope(
       responseData.scope,
