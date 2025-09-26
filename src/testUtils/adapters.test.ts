@@ -19,6 +19,7 @@ describe('Test Adapters', () => {
     'exchangeCode',
     'refreshToken',
     'getProviderQuirks',
+    'computeProviderQuirks',
   ];
 
   // Additional methods specific to certain adapters
@@ -82,6 +83,7 @@ describe('Test Adapters', () => {
         exchangeCodeShouldThrow: true,
         hasExposeNormalizeError: true,
         hasGetConfig: false,
+        hasComputeProviderQuirks: true,
       },
       {
         name: 'RefreshTokenTestAdapter',
@@ -89,6 +91,16 @@ describe('Test Adapters', () => {
         exchangeCodeShouldThrow: false,
         hasExposeNormalizeError: false,
         hasGetConfig: false,
+        hasComputeProviderQuirks: true,
+      },
+      {
+        name: 'MemoizationTestAdapter',
+        AdapterClass: MemoizationTestAdapter,
+        exchangeCodeShouldThrow: false,
+        hasExposeNormalizeError: false,
+        hasGetConfig: false,
+        hasGetCallCount: true,
+        hasComputeProviderQuirks: true,
       },
     ];
 
