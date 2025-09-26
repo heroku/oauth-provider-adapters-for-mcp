@@ -506,12 +506,150 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
    * @returns Token response
    */
   public async exchangeCode(
-    _code: string,
-    _verifier: string,
-    _redirectUrl: string
+    code: string,
+    verifier: string,
+    redirectUrl: string
   ): Promise<import('../../types.js').TokenResponse> {
-    // TODO: Implement OIDC token exchange
-    throw new Error('exchangeCode not yet implemented');
+    if (!this.initialized) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Adapter must be initialized before exchanging code',
+        {
+          stage: 'exchangeCode',
+        }
+      );
+    }
+
+    if (!this.providerMetadata?.token_endpoint) {
+      throw this.createStandardError(
+        'invalid_request',
+        'Token endpoint not available',
+        {
+          stage: 'exchangeCode',
+          ...(this.providerMetadata?.issuer && {
+            issuer: this.providerMetadata.issuer,
+          }),
+        }
+      );
+    }
+
+    try {
+      this.logger.info('Exchanging authorization code for tokens', {
+        stage: 'exchangeCode',
+        issuer: this.providerMetadata.issuer,
+        endpoint: this.providerMetadata.token_endpoint,
+      });
+
+      // Build token request parameters
+      const tokenParams = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        redirect_uri: redirectUrl,
+        client_id: this.oidcConfig.clientId,
+      });
+
+      // Add client_secret if provided (for confidential clients)
+      if (this.oidcConfig.clientSecret) {
+        tokenParams.append('client_secret', this.oidcConfig.clientSecret);
+      }
+
+      // Make token exchange request
+      const response = await fetch(this.providerMetadata.token_endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        body: tokenParams.toString(),
+      });
+
+      let responseData: any;
+      try {
+        responseData = await response.json();
+      } catch {
+        throw this.createStandardError(
+          'server_error',
+          'Invalid JSON response from token endpoint',
+          {
+            stage: 'exchangeCode',
+            issuer: this.providerMetadata.issuer,
+            endpoint: 'token_endpoint',
+          }
+        );
+      }
+
+      // Handle OAuth error responses
+      if (!response.ok) {
+        throw this.createStandardError(
+          responseData.error || 'server_error',
+          responseData.error_description ||
+            `Token exchange failed: ${response.status} ${response.statusText}`,
+          {
+            stage: 'exchangeCode',
+            issuer: this.providerMetadata.issuer,
+            endpoint: 'token_endpoint',
+          }
+        );
+      }
+
+      // Validate required access_token field
+      if (!responseData.access_token) {
+        throw this.createStandardError(
+          'server_error',
+          'Missing access_token in provider response',
+          {
+            stage: 'exchangeCode',
+            issuer: this.providerMetadata.issuer,
+            endpoint: 'token_endpoint',
+          }
+        );
+      }
+
+      // Normalize scope field
+      const normalizedScope = this.normalizeScope(responseData.scope);
+
+      // Extract additional provider fields for userData
+      const userData = this.extractUserData(responseData);
+
+      const tokenResponse: import('../../types.js').TokenResponse = {
+        accessToken: responseData.access_token,
+        ...(responseData.refresh_token && {
+          refreshToken: responseData.refresh_token,
+        }),
+        ...(responseData.id_token && { idToken: responseData.id_token }),
+        ...(responseData.expires_in && { expiresIn: responseData.expires_in }),
+        scope: normalizedScope,
+        ...(userData && { userData }),
+      };
+
+      this.logger.info('Authorization code exchange completed successfully', {
+        stage: 'exchangeCode',
+        issuer: this.providerMetadata.issuer,
+        endpoint: this.providerMetadata.token_endpoint,
+        hasRefreshToken: Boolean(tokenResponse.refreshToken),
+        hasIdToken: Boolean(tokenResponse.idToken),
+        expiresIn: tokenResponse.expiresIn,
+      });
+
+      return tokenResponse;
+    } catch (error) {
+      this.logger.error('Authorization code exchange failed', {
+        stage: 'exchangeCode',
+        issuer: this.providerMetadata?.issuer,
+        endpoint: this.providerMetadata?.token_endpoint,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Re-throw if already normalized
+      if (error && typeof error === 'object' && 'error' in error) {
+        throw error;
+      }
+
+      throw this.normalizeError(error, {
+        endpoint: 'token_endpoint',
+      });
+    }
   }
 
   /**
