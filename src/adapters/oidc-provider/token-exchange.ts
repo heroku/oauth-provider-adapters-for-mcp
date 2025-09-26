@@ -74,18 +74,23 @@ export class TokenExchangeService {
         client_id: this.config.clientId,
       });
 
-      // Add client_secret if provided (for confidential clients)
+      // Prepare headers and client authentication
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      };
+
+      // For confidential clients, use HTTP Basic auth per RFC 6749 §2.3.1
       if (this.config.clientSecret) {
-        tokenParams.append('client_secret', this.config.clientSecret);
+        const credentials = `${this.config.clientId}:${this.config.clientSecret}`;
+        const encoded = Buffer.from(credentials).toString('base64');
+        headers.Authorization = `Basic ${encoded}`;
       }
 
       // Make token exchange request
       const response = await fetch(this.metadata.token_endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
+        headers,
         body: tokenParams.toString(),
       });
 
@@ -185,18 +190,23 @@ export class TokenExchangeService {
         client_id: this.config.clientId,
       });
 
-      // Add client_secret if provided (for confidential clients)
+      // Prepare headers and client authentication
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      };
+
+      // For confidential clients, use HTTP Basic auth per RFC 6749 §2.3.1
       if (this.config.clientSecret) {
-        tokenParams.append('client_secret', this.config.clientSecret);
+        const credentials = `${this.config.clientId}:${this.config.clientSecret}`;
+        const encoded = Buffer.from(credentials).toString('base64');
+        headers.Authorization = `Basic ${encoded}`;
       }
 
       // Make token refresh request
       const response = await fetch(this.metadata.token_endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
+        headers,
         body: tokenParams.toString(),
       });
 

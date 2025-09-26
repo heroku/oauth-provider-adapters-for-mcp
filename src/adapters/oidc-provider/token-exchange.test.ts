@@ -176,7 +176,7 @@ describe('TokenExchangeService', function () {
       expect(result.scope).to.equal('openid profile email');
     });
 
-    it('should include client_secret when provided', async function () {
+    it('should send client credentials via Basic auth when client_secret provided', async function () {
       const configWithSecret = {
         ...mockConfig,
         clientSecret: 'test-client-secret',
@@ -205,8 +205,10 @@ describe('TokenExchangeService', function () {
         'https://example.com/callback'
       );
 
-      const body = new URLSearchParams(fetchStub.firstCall.args[1].body);
-      expect(body.get('client_secret')).to.equal('test-client-secret');
+      const [, options] = fetchStub.firstCall.args;
+      expect(options.headers.Authorization).to.match(/^Basic\s+/);
+      const body = new URLSearchParams(options.body);
+      expect(body.get('client_secret')).to.be.null;
     });
 
     it('should handle OAuth error responses', async function () {
