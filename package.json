@@ -34,12 +34,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/heroku/mcp-oauth-provider-adapters.git"
+    "url": "git+https://github.com/heroku/oauth-provider-adapters-for-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/heroku/mcp-oauth-provider-adapters/issues"
+    "url": "https://github.com/heroku/oauth-provider-adapters-for-mcp/issues"
   },
-  "homepage": "https://github.com/heroku/mcp-oauth-provider-adapters#readme",
+  "homepage": "https://github.com/heroku/oauth-provider-adapters-for-mcp#readme",
   "files": [
     "dist/",
     "src/",
