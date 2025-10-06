@@ -74,52 +74,29 @@ describe('fromEnvironment', () => {
       expect(adapter).to.be.instanceOf(OIDCProviderAdapter);
     });
 
-    it('should throw error when IDENTITY_CLIENT_ID is missing', () => {
-      const env: EnvironmentVariables = {
+    describe('missing required environment variables', () => {
+      const baseEnv: EnvironmentVariables = {
+        IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
         IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
       };
 
-      expect(() => fromEnvironment({ env })).to.throw(
-        'Missing required environment variable: IDENTITY_CLIENT_ID'
-      );
-    });
+      // Generate an array of test cases for each variable in the EnvironmentVariables interface
+      const cases = Object.keys(baseEnv).map((key) => ({
+        missingKey: key as keyof EnvironmentVariables,
+        message: `Missing required environment variable: ${key}`,
+      }));
 
-    it('should throw error when IDENTITY_CLIENT_SECRET is missing', () => {
-      const env: EnvironmentVariables = {
-        IDENTITY_CLIENT_ID: 'test-client-id',
-        IDENTITY_SERVER_URL: 'https://auth.example.com',
-        IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
-      };
+      // Run a test case for each variable
+      for (const testCase of cases) {
+        it(`should throw error when ${testCase.missingKey} is missing`, () => {
+          const env: EnvironmentVariables = { ...baseEnv };
+          delete env[testCase.missingKey];
 
-      expect(() => fromEnvironment({ env })).to.throw(
-        'Missing required environment variable: IDENTITY_CLIENT_SECRET'
-      );
-    });
-
-    it('should throw error when IDENTITY_SERVER_URL is missing', () => {
-      const env: EnvironmentVariables = {
-        IDENTITY_CLIENT_ID: 'test-client-id',
-        IDENTITY_CLIENT_SECRET: 'test-client-secret',
-        IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
-      };
-
-      expect(() => fromEnvironment({ env })).to.throw(
-        'Missing required environment variable: IDENTITY_SERVER_URL'
-      );
-    });
-
-    it('should throw error when IDENTITY_REDIRECT_URI is missing', () => {
-      const env: EnvironmentVariables = {
-        IDENTITY_CLIENT_ID: 'test-client-id',
-        IDENTITY_CLIENT_SECRET: 'test-client-secret',
-        IDENTITY_SERVER_URL: 'https://auth.example.com',
-      };
-
-      expect(() => fromEnvironment({ env })).to.throw(
-        'Missing required environment variable: IDENTITY_REDIRECT_URI'
-      );
+          expect(() => fromEnvironment({ env })).to.throw(testCase.message);
+        });
+      }
     });
 
     it('should use process.env when env option is not provided', () => {
