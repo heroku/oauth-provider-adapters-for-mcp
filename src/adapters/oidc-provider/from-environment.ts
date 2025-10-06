@@ -31,35 +31,25 @@ export function fromEnvironment(
   const env = options.env || process.env;
   const defaultScopes = options.defaultScopes || DEFAULT_SCOPES;
 
-  // Validate required environment variables
-  const clientId = env.IDENTITY_CLIENT_ID;
-  const clientSecret = env.IDENTITY_CLIENT_SECRET;
-  const serverUrl = env.IDENTITY_SERVER_URL;
-  const redirectUri = env.IDENTITY_REDIRECT_URI;
+  // Validate required environment variables via a centralized map to avoid duplication
+  const requiredEnv: Record<string, string | undefined> = {
+    IDENTITY_CLIENT_ID: env.IDENTITY_CLIENT_ID,
+    IDENTITY_CLIENT_SECRET: env.IDENTITY_CLIENT_SECRET,
+    IDENTITY_SERVER_URL: env.IDENTITY_SERVER_URL,
+    IDENTITY_REDIRECT_URI: env.IDENTITY_REDIRECT_URI,
+  };
 
-  if (!clientId) {
-    throw new Error(
-      'Missing required environment variable: IDENTITY_CLIENT_ID'
-    );
+  for (const [key, value] of Object.entries(requiredEnv)) {
+    if (!value) {
+      throw new Error(`Missing required environment variable: ${key}`);
+    }
   }
 
-  if (!clientSecret) {
-    throw new Error(
-      'Missing required environment variable: IDENTITY_CLIENT_SECRET'
-    );
-  }
-
-  if (!serverUrl) {
-    throw new Error(
-      'Missing required environment variable: IDENTITY_SERVER_URL'
-    );
-  }
-
-  if (!redirectUri) {
-    throw new Error(
-      'Missing required environment variable: IDENTITY_REDIRECT_URI'
-    );
-  }
+  // Safe after validation
+  const clientId = requiredEnv.IDENTITY_CLIENT_ID as string;
+  const clientSecret = requiredEnv.IDENTITY_CLIENT_SECRET as string;
+  const serverUrl = requiredEnv.IDENTITY_SERVER_URL as string;
+  const redirectUri = requiredEnv.IDENTITY_REDIRECT_URI as string;
 
   // Parse scopes: split by spaces and commas, filter empty strings
   const scopesString = env.IDENTITY_SCOPE || '';
