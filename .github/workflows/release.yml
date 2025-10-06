@@ -50,7 +50,7 @@ jobs:
       - name: Run tests
         run: pnpm test
 
-      - name: Publish to npm (Beta - Private)
-        run: pnpm publish --provenance --access restricted --no-git-checks
+      - name: Publish to npm
+        run: pnpm publish --provenance --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
