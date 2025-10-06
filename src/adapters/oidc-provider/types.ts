@@ -181,3 +181,35 @@ export interface RawTokenResponse {
   /** Additional provider-specific fields */
   [key: string]: unknown;
 }
+
+/**
+ * Environment variable names used by legacy OIDC configuration
+ */
+export interface EnvironmentVariables {
+  /** OIDC Client ID */
+  IDENTITY_CLIENT_ID?: string;
+  /** OIDC Client Secret */
+  IDENTITY_CLIENT_SECRET?: string;
+  /** OIDC Server/Issuer URL */
+  IDENTITY_SERVER_URL?: string;
+  /** OAuth scopes (space or comma separated) */
+  IDENTITY_SCOPE?: string;
+  /** OAuth redirect URI */
+  IDENTITY_REDIRECT_URI?: string;
+  /** Allow any other environment variables */
+  [key: string]: string | undefined;
+}
+
+/**
+ * Options for creating OIDCProviderAdapter from environment
+ */
+export interface FromEnvironmentOptions {
+  /** Optional PKCE storage hook implementation */
+  storageHook?: PKCEStorageHook;
+  /** Optional custom environment variables object (defaults to process.env) */
+  env?: EnvironmentVariables;
+  /** Default scopes if IDENTITY_SCOPE is not provided */
+  defaultScopes?: string[];
+  /** Additional custom parameters for authorization requests */
+  customParameters?: Record<string, string>;
+}

@@ -12,8 +12,6 @@ export type {
   OIDCAuthUrlOptions,
   OIDCAuthUrlResult,
   PKCEStorageHook,
-} from './types.js';
-export type {
-  LegacyEnvironmentVariables,
+  EnvironmentVariables,
   FromEnvironmentOptions,
-} from './from-environment.js';
+} from './types.js';

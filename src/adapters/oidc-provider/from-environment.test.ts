@@ -4,14 +4,14 @@
 
 import { expect } from 'chai';
 import sinon from 'sinon';
+import type { EnvironmentVariables } from './types.js';
 import { fromEnvironment, fromEnvironmentAsync } from './from-environment.js';
-import type { LegacyEnvironmentVariables } from './from-environment.js';
 import { OIDCProviderAdapter } from './oidc-adapter.js';
 
 describe('fromEnvironment', () => {
   describe('fromEnvironment (sync)', () => {
     it('should create adapter with required environment variables', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
@@ -26,7 +26,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should create adapter with custom scopes', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
@@ -40,7 +40,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should create adapter with custom default scopes', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
@@ -56,7 +56,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should create adapter with storage hook', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
@@ -75,7 +75,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should throw error when IDENTITY_CLIENT_ID is missing', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
         IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
@@ -87,7 +87,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should throw error when IDENTITY_CLIENT_SECRET is missing', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
         IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
@@ -99,7 +99,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should throw error when IDENTITY_SERVER_URL is missing', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
@@ -111,7 +111,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should throw error when IDENTITY_REDIRECT_URI is missing', () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
@@ -143,7 +143,7 @@ describe('fromEnvironment', () => {
 
   describe('fromEnvironmentAsync', () => {
     it('should create adapter instance (initialization will be tested separately)', async () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         IDENTITY_CLIENT_ID: 'test-client-id',
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
@@ -157,7 +157,7 @@ describe('fromEnvironment', () => {
     });
 
     it('should propagate creation errors from fromEnvironment', async () => {
-      const env: LegacyEnvironmentVariables = {
+      const env: EnvironmentVariables = {
         // Missing required env vars
         IDENTITY_CLIENT_SECRET: 'test-client-secret',
         IDENTITY_SERVER_URL: 'https://auth.example.com',
