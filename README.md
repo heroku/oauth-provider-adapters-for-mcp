@@ -17,10 +17,10 @@ exchange, refresh) with normalized errors and configuration validation.
 ## Scripts
 
 ```bash
-npm run build      # builds CJS + ESM to dist/
-npm test           # runs unit tests with coverage (c8 + mocha)
-npm run lint       # eslint
-npm run type-check # tsc --noEmit
+pnpm run build      # builds CJS + ESM to dist/
+pnpm test           # runs unit tests with coverage (c8 + mocha)
+pnpm run lint       # eslint
+pnpm run type-check # tsc --noEmit
 ```
 
 ## License

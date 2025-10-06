@@ -1,0 +1,24 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "mcp-oauth-provider-adapters",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "changelog-sections": [
+        { "type": "feat", "section": "Features", "hidden": false },
+        { "type": "fix", "section": "Bug Fixes", "hidden": false },
+        {
+          "type": "perf",
+          "section": "Performance Improvements",
+          "hidden": false
+        },
+        { "type": "refactor", "section": "Code Refactoring", "hidden": false },
+        { "type": "docs", "section": "Documentation", "hidden": false },
+        { "type": "chore", "section": "Miscellaneous", "hidden": false }
+      ],
+      "prerelease": true,
+      "prerelease-type": "beta"
+    }
+  }
+}
