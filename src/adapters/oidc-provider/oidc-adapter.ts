@@ -104,7 +104,8 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       redirectUri: validatedConfig.redirectUri,
     } as ProviderConfig;
 
-    super(baseConfig);
+    // Pass logger to base class if provided
+    super(baseConfig, config.logger);
     this.oidcConfig = validatedConfig as OIDCProviderConfig;
     this.storageHook = this.enforceProductionStorage(
       validatedConfig.storageHook,

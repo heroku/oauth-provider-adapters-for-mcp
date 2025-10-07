@@ -20,6 +20,15 @@ export type {
 // Export utilities
 export { ErrorNormalizer } from './utils/error-normalizer.js';
 
+// Export logging utilities
+export type {
+  Logger,
+  LogLevel,
+  LogMeta,
+  LogTransport,
+} from './logging/types.js';
+export { DefaultLogger } from './logging/logger.js';
+
 export default {
   version,
 };
