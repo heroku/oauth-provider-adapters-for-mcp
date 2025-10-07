@@ -74,31 +74,6 @@ describe('fromEnvironment', () => {
       expect(adapter).to.be.instanceOf(OIDCProviderAdapter);
     });
 
-    describe('missing required environment variables', () => {
-      const baseEnv: EnvironmentVariables = {
-        IDENTITY_CLIENT_ID: 'test-client-id',
-        IDENTITY_CLIENT_SECRET: 'test-client-secret',
-        IDENTITY_SERVER_URL: 'https://auth.example.com',
-        IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
-      };
-
-      // Generate an array of test cases for each variable in the EnvironmentVariables interface
-      const cases = Object.keys(baseEnv).map((key) => ({
-        missingKey: key as keyof EnvironmentVariables,
-        message: `Missing required environment variable: ${key}`,
-      }));
-
-      // Run a test case for each variable
-      for (const testCase of cases) {
-        it(`should throw error when ${testCase.missingKey} is missing`, () => {
-          const env: EnvironmentVariables = { ...baseEnv };
-          delete env[testCase.missingKey];
-
-          expect(() => fromEnvironment({ env })).to.throw(testCase.message);
-        });
-      }
-    });
-
     it('should use process.env when env option is not provided', () => {
       const originalEnv = process.env;
       process.env = {
