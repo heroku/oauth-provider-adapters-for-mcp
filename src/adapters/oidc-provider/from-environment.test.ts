@@ -5,7 +5,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import type { EnvironmentVariables } from './types.js';
-import { fromEnvironment, fromEnvironmentAsync } from './from-environment.js';
+import { fromEnvironment } from './from-environment.js';
 import { OIDCProviderAdapter } from './oidc-adapter.js';
 
 describe('fromEnvironment', () => {
