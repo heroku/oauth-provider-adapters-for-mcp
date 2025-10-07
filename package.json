@@ -1,8 +1,9 @@
 {
   "name": "mcp-oauth-provider-adapters",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "An OAuth adapter framework for developers that can add OAuth providers to remote MCP servers with minimal friction.",
   "type": "module",
+  "packageManager": "pnpm@8.15.9",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -19,14 +20,14 @@
   "scripts": {
     "build:cjs": "rm -rf dist/cjs && tsc -p tsconfig.cjs.json && mkdir -p dist/cjs && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json",
     "build:esm": "rm -rf dist/esm && tsc -p tsconfig.esm.json",
-    "build": "npm run build:cjs && npm run build:esm",
+    "build": "pnpm run build:cjs && pnpm run build:esm",
     "test": "MCP_OAUTH_LOG_LEVEL=silent LOG_LEVEL=silent c8 mocha --require ./scripts/test-setup.mjs --forbid-only \"dist/cjs/**/*.test.js\"",
     "prepare": "husky",
     "lint": "eslint \"src/**/*.{js,ts}\"",
     "lint:fix": "eslint \"src/**/*.{js,ts}\" --fix",
     "prettier": "prettier . --write --config ./.prettier.mjs",
-    "format": "npm run prettier && npm run lint:fix",
-    "pretest": "npm run build:cjs && npm run build:esm && npm run type-check",
+    "format": "pnpm run prettier && pnpm run lint:fix",
+    "pretest": "pnpm run build:cjs && pnpm run build:esm && pnpm run type-check",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "lint-staged": "npx lint-staged"
   },
@@ -52,6 +53,8 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "@eslint/js": "^9.36.0",
     "@types/chai": "^5.2.2",
     "@types/http-errors": "^2.0.5",
@@ -74,6 +77,7 @@
     "typescript": "^5.9.2"
   },
   "publishConfig": {
-    "access": "private"
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
   }
 }
