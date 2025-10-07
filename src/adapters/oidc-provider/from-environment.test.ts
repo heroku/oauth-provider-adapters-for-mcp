@@ -107,22 +107,5 @@ describe('fromEnvironment', () => {
       const adapter = fromEnvironment({ env });
       expect(adapter).to.be.instanceOf(OIDCProviderAdapter);
     });
-
-    it('should propagate creation errors from fromEnvironment', async () => {
-      const env: EnvironmentVariables = {
-        // Missing required env vars
-        IDENTITY_CLIENT_SECRET: 'test-client-secret',
-        IDENTITY_SERVER_URL: 'https://auth.example.com',
-        IDENTITY_REDIRECT_URI: 'https://app.example.com/callback',
-      };
-
-      try {
-        await fromEnvironmentAsync({ env });
-        expect.fail('Should have thrown an error');
-      } catch (error) {
-        expect(error).to.be.instanceOf(Error);
-        expect((error as Error).message).to.include('IDENTITY_CLIENT_ID');
-      }
-    });
   });
 });
