@@ -88,11 +88,11 @@ Key quirks:
 - Accept header `application/json` recommended for token responses
 
 ```ts
-import { BaseOAuthAdapter } from 'mcp-oauth-provider-adapters';
+import { BaseOAuthAdapter } from '@heroku/mcp-oauth-provider-adapters';
 import type {
   ProviderQuirks,
   TokenResponse,
-} from 'mcp-oauth-provider-adapters';
+} from '@heroku/mcp-oauth-provider-adapters';
 
 export class GitHubOAuthAdapter extends BaseOAuthAdapter {
   private readonly authorizationEndpoint =

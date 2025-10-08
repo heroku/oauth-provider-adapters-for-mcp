@@ -36,11 +36,21 @@ as an example.
 - Node.js ≥ 20
 - An OIDC provider (e.g., Auth0 Tenant)
 - Remote MCP server (e.g., Cloudflare Workers or Node server)
+- [MCP Remote Auth Proxy](https://github.com/heroku/mcp-remote-auth-proxy) - An
+  MCP auth proxy within your Heroku app that enables you to use a remote MCP
+  server
 
 ### Install
 
 ```bash
-pnpm add mcp-oauth-provider-adapters
+# npm
+npm install @heroku/oauth-provider-adapters-for-mcp
+
+# yarn
+yarn add @heroku/oauth-provider-adapters-for-mcp
+
+# pnpm
+pnpm add @heroku/oauth-provider-adapters-for-mcp
 ```
 
 ### Choose a configuration mode
@@ -57,7 +67,7 @@ Exactly one of `issuer` or `metadata` must be provided.
 Auth0 issuer pattern: `https://<your-tenant>.auth0.com`
 
 ```ts
-import { OIDCProviderAdapter } from 'mcp-oauth-provider-adapters';
+import { OIDCProviderAdapter } from '@heroku/oauth-provider-adapters-for-mcp';
 
 const adapter = new OIDCProviderAdapter({
   clientId: process.env.IDENTITY_CLIENT_ID!,
@@ -109,13 +119,22 @@ IDENTITY_REDIRECT_URI=https://<your-remote-mcp-host>/oauth/callback
 Tip: For most use cases, you can simplify configuration by using the
 `fromEnvironmentAsync` convenience helper.
 
-This helper automatically reads all required OIDC configuration (such as
-`clientId`, `clientSecret`, `issuer`, `scopes`, and `redirectUri`) from
-environment variables following common naming conventions. This reduces
-boilerplate and helps ensure your adapter is configured consistently across
-environments. It is especially useful in production or CI/CD setups where
+This helper automatically reads all required OIDC configurations from
+environment variables following common naming conventions (see below). This
+reduces boilerplate and helps ensure your adapter is configured consistently
+across environments. It is especially useful in production or CI/CD setups where
 secrets and configuration are injected via environment variables, and it helps
 prevent accidental misconfiguration.
+
+Environemnt variables supported:
+
+- `IDENTITY_CLIENT_ID` -> clientId
+- `IDENTITY_CLIENT_SECRET` -> clientSecret
+- `IDENTITY_SERVER_URL` -> issuer (for OIDC discovery)
+- `IDENTITY_SERVER_METADATA_FILE` -> metadata (static metadata file, skips
+  discovery)
+- `IDENTITY_REDIRECT_URI` -> redirectUri
+- `IDENTITY_SCOPE` -> scopes (split by spaces and commas)
 
 You can still override or extend the configuration by passing additional
 options, such as `customParameters` for provider-specific needs (e.g., Auth0's
@@ -129,7 +148,7 @@ Fetch your provider’s metadata once from `/.well-known/openid-configuration`,
 then embed a subset:
 
 ```ts
-import { OIDCProviderAdapter } from 'mcp-oauth-provider-adapters';
+import { OIDCProviderAdapter } from '@heroku/oauth-provider-adapters-for-mcp';
 
 const adapter = new OIDCProviderAdapter({
   clientId: process.env.IDENTITY_CLIENT_ID!,
@@ -177,7 +196,9 @@ interface PKCEStorageHook {
 }
 ```
 
-Examples: Cloudflare KV/D1, Redis, or your database.
+Examples:
+[Heroku Key-Value Store](https://devcenter.heroku.com/articles/heroku-redis),
+Redis or your database.
 
 ### Wiring into a Remote MCP server
 
@@ -202,8 +223,65 @@ type OAuthError = {
 };
 ```
 
+#### Logger injection
+
 The adapter performs PII-safe, structured logging and retries with backoff for
-discovery.
+discovery. In addition, we support logger injection via `LogTransport` so logs
+integrate with your observability stack. Below is an example of how to demo
+logging capabilities using the `winston` logger used in `mcp-remote-auth-proxy`.
+
+1. Import required types
+
+```javascript
+import {
+  fromEnvironmentAsync,
+  DefaultLogger,
+  LogLevel,
+} from '@heroku/oauth-provider-adapters-for-mcp';
+import winstonLogger from './winstonLogger.js';
+```
+
+2. Create a LogTransport wrapper
+
+```javascript
+// Create a LogTransport that wraps Winston
+const winstonTransport = {
+  log: (message) => {
+    // Winston child logger preserves request context and Splunk formatting
+    const contextLogger = winstonLogger.child({ component: 'oidc-adapter' });
+    contextLogger.info(message);
+  },
+  error: (message) => {
+    const contextLogger = winstonLogger.child({ component: 'oidc-adapter' });
+    contextLogger.error(message);
+  },
+};
+```
+
+3. Create DefaultLogger with the Winston transport
+
+```javascript
+// Create DefaultLogger that uses Winston as transport
+const adapterLogger = new DefaultLogger(
+  { component: 'oidc-adapter' }, // Base context
+  {
+    level: LogLevel.Info,
+    redactPaths: [], // DefaultLogger already has OAuth redaction built-in
+  },
+  winstonTransport // Use Winston as the transport
+);
+```
+
+4. Pass the logger to the adapter
+
+```javascript
+const oidcAdapter = await fromEnvironmentAsync({
+  env: adapterEnv,
+  storageHook,
+  defaultScopes: IDENTITY_SCOPE_parsed,
+  logger: adapterLogger,
+});
+```
 
 ## License
 
