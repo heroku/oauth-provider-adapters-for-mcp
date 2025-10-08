@@ -75,6 +75,10 @@ export function fromEnvironment(
     config.storageHook = options.storageHook;
   }
 
+  if (options.logger) {
+    config.logger = options.logger;
+  }
+
   // Create and return adapter instance
   return new OIDCProviderAdapter(config);
 }

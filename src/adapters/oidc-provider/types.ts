@@ -95,6 +95,8 @@ export interface OIDCProviderConfig extends ProviderConfig {
   storageHook?: PKCEStorageHook;
   /** PKCE state expiration time in seconds (default: 600 = 10 minutes) */
   pkceStateExpirationSeconds?: number;
+  /** Optional logger instance to use for logging */
+  logger?: import('../../logging/types.js').Logger;
 }
 
 /**
@@ -212,4 +214,6 @@ export interface FromEnvironmentOptions {
   defaultScopes?: string[];
   /** Additional custom parameters for authorization requests */
   customParameters?: Record<string, string>;
+  /** Optional logger instance to use for logging */
+  logger?: import('../../logging/types.js').Logger;
 }
