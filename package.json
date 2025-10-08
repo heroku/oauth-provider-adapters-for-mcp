@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "An OAuth adapter framework for developers that can add OAuth providers to remote MCP servers with minimal friction.",
   "type": "module",
-  "packageManager": "pnpm@8.15.9",
+  "packageManager": "pnpm@10.18.1",
   "engines": {
     "node": ">=20.0.0"
   },
