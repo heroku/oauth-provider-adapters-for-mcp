@@ -23,6 +23,188 @@ pnpm run lint       # eslint
 pnpm run type-check # tsc --noEmit
 ```
 
+## Implementing OIDC in a Remote MCP Server (with Auth0 example)
+
+This guide shows how to integrate `mcp-oauth-provider-adapters` into a Remote
+MCP server and implement an OIDC provider using both discovery and static
+metadata. We’ll use
+`[remote-mcp-auth0](https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-auth0)`
+as an example.
+
+### Prerequisites
+
+- Node.js ≥ 20
+- An OIDC provider (e.g., Auth0 Tenant)
+- Remote MCP server (e.g., Cloudflare Workers or Node server)
+
+### Install
+
+```bash
+pnpm add mcp-oauth-provider-adapters
+```
+
+### Choose a configuration mode
+
+You can configure the `OIDCProviderAdapter` with:
+
+- **Discovery**: Provide an `issuer` (recommended)
+- **Static metadata**: Provide `metadata` (useful in restricted environments)
+
+Exactly one of `issuer` or `metadata` must be provided.
+
+### Quickstart with Auth0 (discovery)
+
+Auth0 issuer pattern: `https://<your-tenant>.auth0.com`
+
+```ts
+import { OIDCProviderAdapter } from 'mcp-oauth-provider-adapters';
+
+const adapter = new OIDCProviderAdapter({
+  clientId: process.env.IDENTITY_CLIENT_ID!,
+  clientSecret: process.env.IDENTITY_CLIENT_SECRET,
+  issuer: `https://${process.env.AUTH0_TENANT}.auth0.com`,
+  scopes: ['openid', 'profile', 'email', 'offline_access'],
+  // Redirect URI must match your app registration
+  redirectUri: process.env.IDENTITY_REDIRECT_URI,
+  // Auth0 often requires audience for API access (optional)
+  customParameters: process.env.AUTH0_AUDIENCE
+    ? { audience: process.env.AUTH0_AUDIENCE }
+    : undefined,
+});
+
+await adapter.initialize();
+
+// Begin login flow (inside your authorize endpoint)
+const state = crypto.randomUUID();
+const authUrl = await adapter.generateAuthUrl(
+  state,
+  process.env.IDENTITY_REDIRECT_URI!
+);
+// Redirect user to authUrl
+
+// Handle OAuth callback
+// Retrieve the `code` from the OAuth callback query parameters (e.g., req.query.code or event.queryStringParameters.code)
+// Retrieve the PKCE `code_verifier` you previously stored for this interaction (e.g., from a secure session, database, or in-memory store keyed by `state`)
+const tokens = await adapter.exchangeCode(
+  code,
+  codeVerifier,
+  process.env.IDENTITY_REDIRECT_URI!
+);
+// tokens: { accessToken, refreshToken?, idToken?, expiresIn?, scope? }
+
+// Later: refresh token
+const refreshed = await adapter.refreshToken(tokens.refreshToken!);
+```
+
+Environment variables commonly used with Auth0:
+
+```bash
+IDENTITY_CLIENT_ID=<auth0 client id>
+IDENTITY_CLIENT_SECRET=<auth0 client secret>
+AUTH0_TENANT=<tenant subdomain>
+AUTH0_AUDIENCE=<optional resource API identifier>
+IDENTITY_REDIRECT_URI=https://<your-remote-mcp-host>/oauth/callback
+```
+
+Tip: For most use cases, you can simplify configuration by using the
+`fromEnvironmentAsync` convenience helper.
+
+This helper automatically reads all required OIDC configuration (such as
+`clientId`, `clientSecret`, `issuer`, `scopes`, and `redirectUri`) from
+environment variables following common naming conventions. This reduces
+boilerplate and helps ensure your adapter is configured consistently across
+environments. It is especially useful in production or CI/CD setups where
+secrets and configuration are injected via environment variables, and it helps
+prevent accidental misconfiguration.
+
+You can still override or extend the configuration by passing additional
+options, such as `customParameters` for provider-specific needs (e.g., Auth0's
+`audience`).
+
+Example:
+
+### Using static metadata (no discovery)
+
+Fetch your provider’s metadata once from `/.well-known/openid-configuration`,
+then embed a subset:
+
+```ts
+import { OIDCProviderAdapter } from 'mcp-oauth-provider-adapters';
+
+const adapter = new OIDCProviderAdapter({
+  clientId: process.env.IDENTITY_CLIENT_ID!,
+  clientSecret: process.env.IDENTITY_CLIENT_SECRET,
+  scopes: ['openid', 'profile', 'email', 'offline_access'],
+  redirectUri: process.env.IDENTITY_REDIRECT_URI,
+  metadata: {
+    issuer: `https://${process.env.AUTH0_TENANT}.auth0.com`,
+    authorization_endpoint: `https://${process.env.AUTH0_TENANT}.auth0.com/authorize`,
+    token_endpoint: `https://${process.env.AUTH0_TENANT}.auth0.com/oauth/token`,
+    jwks_uri: `https://${process.env.AUTH0_TENANT}.auth0.com/.well-known/jwks.json`,
+    response_types_supported: ['code'],
+    grant_types_supported: ['authorization_code', 'refresh_token'],
+    code_challenge_methods_supported: ['S256'],
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['RS256'],
+  },
+  customParameters: process.env.AUTH0_AUDIENCE
+    ? { audience: process.env.AUTH0_AUDIENCE }
+    : undefined,
+});
+
+await adapter.initialize();
+```
+
+### PKCE state storage
+
+`OIDCProviderAdapter` requires storing the PKCE verifier securely between the
+authorize and callback steps. In development, an in-memory mock is used. In
+production you must provide a durable `storageHook` that implements:
+
+```ts
+interface PKCEStorageHook {
+  storePKCEState(
+    interactionId: string,
+    state: string,
+    codeVerifier: string,
+    expiresAt: number
+  ): Promise<void>;
+  retrievePKCEState(
+    interactionId: string,
+    state: string
+  ): Promise<string | null>;
+  cleanupExpiredState(beforeTimestamp: number): Promise<void>;
+}
+```
+
+Examples: Cloudflare KV/D1, Redis, or your database.
+
+### Wiring into a Remote MCP server
+
+At minimum, your server needs routes that:
+
+- Start the auth flow and redirect to `await adapter.generateAuthUrl(...)`
+- Handle the callback, verify `state`, load `code_verifier`, and call
+  `adapter.exchangeCode(...)`
+- Optionally expose a refresh path that calls `adapter.refreshToken(...)`
+
+### Error handling and logging
+
+Errors are normalized to:
+
+```ts
+type OAuthError = {
+  statusCode: number;
+  error: string;
+  error_description?: string;
+  endpoint?: string;
+  issuer?: string;
+};
+```
+
+The adapter performs PII-safe, structured logging and retries with backoff for
+discovery.
+
 ## License
 
 Apache-2.0. See `LICENSE` for details.
