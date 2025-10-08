@@ -62,9 +62,13 @@ export abstract class BaseOAuthAdapter {
    * Creates a new BaseOAuthAdapter instance
    *
    * @param config - Provider-specific configuration including client credentials, scopes, and endpoints
+   * @param logger - Optional logger instance to use instead of default logger
    */
-  public constructor(config: ProviderConfig) {
+  public constructor(config: ProviderConfig, logger?: Logger) {
     this.config = config;
+    if (logger) {
+      this.loggerImpl = logger;
+    }
   }
 
   public get logger(): Logger {
@@ -75,6 +79,14 @@ export abstract class BaseOAuthAdapter {
       );
     }
     return this.loggerImpl;
+  }
+
+  /**
+   * Set a custom logger instance for this adapter
+   * @param logger - The logger instance to use
+   */
+  public setLogger(logger: Logger): void {
+    this.loggerImpl = logger;
   }
 
   /**
