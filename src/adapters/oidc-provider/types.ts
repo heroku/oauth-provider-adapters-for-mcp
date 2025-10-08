@@ -80,10 +80,10 @@ export interface PKCEStorageHook {
  * OIDC Provider Adapter configuration extending base ProviderConfig
  */
 export interface OIDCProviderConfig extends ProviderConfig {
-  /** OIDC issuer URL for discovery (exactly one of issuer or serverMetadata must be provided) */
+  /** OIDC issuer URL for discovery (exactly one of issuer or metadata must be provided) */
   issuer?: string;
-  /** Static OIDC provider metadata (exactly one of issuer or serverMetadata must be provided) */
-  serverMetadata?: OIDCProviderMetadata;
+  /** Static OIDC provider metadata (exactly one of issuer or metadata must be provided) */
+  metadata?: OIDCProviderMetadata;
   /** Custom parameters to include in authorization requests */
   customParameters?: Record<string, string>;
   /** Timeout configuration */
