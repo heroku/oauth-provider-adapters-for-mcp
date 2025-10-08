@@ -7,6 +7,12 @@ settings:
 importers:
   .:
     dependencies:
+      http-errors:
+        specifier: ^2.0.0
+        version: 2.0.0
+      http-status-codes:
+        specifier: ^2.3.0
+        version: 2.3.0
       openid-client:
         specifier: ^6.8.1
         version: 6.8.1
@@ -50,12 +56,6 @@ importers:
       eslint:
         specifier: ^9.37.0
         version: 9.37.0
-      http-errors:
-        specifier: ^2.0.0
-        version: 2.0.0
-      http-status-codes:
-        specifier: ^2.3.0
-        version: 2.3.0
       husky:
         specifier: ^9.1.7
         version: 9.1.7
