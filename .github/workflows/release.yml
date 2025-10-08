@@ -1,10 +1,16 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release to create'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - beta
+          - stable
 
 jobs:
   release-please:
@@ -51,6 +57,11 @@ jobs:
         run: pnpm test
 
       - name: Publish to npm
-        run: pnpm publish --provenance --no-git-checks
+        run: |
+          if [ "${{ github.event.inputs.release_type }}" = "stable" ]; then
+            pnpm publish --provenance --no-git-checks
+          else
+            pnpm publish --tag beta --provenance --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

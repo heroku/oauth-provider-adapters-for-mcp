@@ -20,6 +20,12 @@ export type {
 // Export utilities
 export { ErrorNormalizer } from './utils/error-normalizer.js';
 
+// Export logging utilities
+export type { Logger, LogMeta, LogTransport } from './logging/types.js';
+// Export enums as values (they need runtime presence)
+export { LogLevel, LogDestination } from './logging/types.js';
+export { DefaultLogger } from './logging/logger.js';
+
 export default {
   version,
 };
