@@ -2,7 +2,7 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "mcp-oauth-provider-adapters",
+      "package-name": "@heroku/oauth-provider-adapters-for-mcp",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "changelog-sections": [

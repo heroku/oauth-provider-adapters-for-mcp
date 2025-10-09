@@ -1,5 +1,5 @@
 {
-  "name": "mcp-oauth-provider-adapters",
+  "name": "@heroku/oauth-provider-adapters-for-mcp",
   "version": "0.0.0",
   "description": "An OAuth adapter framework for developers that can add OAuth providers to remote MCP servers with minimal friction.",
   "type": "module",
@@ -37,12 +37,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/heroku/mcp-oauth-provider-adapters.git"
+    "url": "git+https://github.com/heroku/oauth-provider-adapters-for-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/heroku/mcp-oauth-provider-adapters/issues"
+    "url": "https://github.com/heroku/oauth-provider-adapters-for-mcp/issues"
   },
-  "homepage": "https://github.com/heroku/mcp-oauth-provider-adapters#readme",
+  "homepage": "https://github.com/heroku/oauth-provider-adapters-for-mcp#readme",
   "files": [
     "dist/",
     "src/",
