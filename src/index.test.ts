@@ -1,5 +1,5 @@
 /**
- * Test file for mcp-oauth-provider-adapters
+ * Test file for @heroku/oauth-provider-adapters-for-mcp
  * Uses Mocha with c8 coverage
  * Co-located with the main module for better maintainability
  */

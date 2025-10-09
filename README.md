@@ -1,4 +1,4 @@
-# MCP OAuth Provider Adapter Library
+# OAuth Provider Adapter Library for MCP Servers
 
 An OAuth/OIDC adapter framework designed to make adding identity providers to
 Remote MCP servers simple, consistent, and testable.
