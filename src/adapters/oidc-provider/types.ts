@@ -192,8 +192,10 @@ export interface EnvironmentVariables {
   IDENTITY_CLIENT_ID?: string;
   /** OIDC Client Secret */
   IDENTITY_CLIENT_SECRET?: string;
-  /** OIDC Server/Issuer URL */
+  /** OIDC Server/Issuer URL (used for discovery if IDENTITY_SERVER_METADATA_FILE is not provided) */
   IDENTITY_SERVER_URL?: string;
+  /** Path to static OIDC metadata file (skips discovery if provided) */
+  IDENTITY_SERVER_METADATA_FILE?: string;
   /** OAuth scopes (space or comma separated) */
   IDENTITY_SCOPE?: string;
   /** OAuth redirect URI */
