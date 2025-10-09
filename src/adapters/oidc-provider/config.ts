@@ -8,7 +8,7 @@ import { z } from 'zod';
 /**
  * OIDC Provider Metadata schema for validation
  */
-const ServerMetadataSchema = z.object({
+const metadataSchema = z.object({
   issuer: z.string().url('Invalid issuer URL'),
   authorization_endpoint: z.string().url('Invalid authorization endpoint URL'),
   token_endpoint: z.string().url('Invalid token endpoint URL'),
@@ -36,7 +36,7 @@ export const OIDCProviderConfigSchema = z
       .min(1, 'clientSecret is required for confidential clients')
       .optional(),
     issuer: z.string().url('Invalid issuer URL').optional(),
-    metadata: ServerMetadataSchema.optional(),
+    metadata: metadataSchema.optional(),
     scopes: z.array(z.string()).default(['openid', 'profile', 'email']),
     customParameters: z.record(z.string(), z.string()).optional(),
     timeouts: z
