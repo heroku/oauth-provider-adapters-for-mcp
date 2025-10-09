@@ -80,10 +80,10 @@ export interface PKCEStorageHook {
  * OIDC Provider Adapter configuration extending base ProviderConfig
  */
 export interface OIDCProviderConfig extends ProviderConfig {
-  /** OIDC issuer URL for discovery (exactly one of issuer or serverMetadata must be provided) */
+  /** OIDC issuer URL for discovery (exactly one of issuer or metadata must be provided) */
   issuer?: string;
-  /** Static OIDC provider metadata (exactly one of issuer or serverMetadata must be provided) */
-  serverMetadata?: OIDCProviderMetadata;
+  /** Static OIDC provider metadata (exactly one of issuer or metadata must be provided) */
+  metadata?: OIDCProviderMetadata;
   /** Custom parameters to include in authorization requests */
   customParameters?: Record<string, string>;
   /** Timeout configuration */
@@ -192,8 +192,10 @@ export interface EnvironmentVariables {
   IDENTITY_CLIENT_ID?: string;
   /** OIDC Client Secret */
   IDENTITY_CLIENT_SECRET?: string;
-  /** OIDC Server/Issuer URL */
+  /** OIDC Server/Issuer URL (used for discovery if IDENTITY_SERVER_METADATA_FILE is not provided) */
   IDENTITY_SERVER_URL?: string;
+  /** Path to static OIDC metadata file (skips discovery if provided) */
+  IDENTITY_SERVER_METADATA_FILE?: string;
   /** OAuth scopes (space or comma separated) */
   IDENTITY_SCOPE?: string;
   /** OAuth redirect URI */

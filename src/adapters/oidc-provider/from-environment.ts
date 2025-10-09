@@ -3,7 +3,12 @@
  * Maps legacy environment variables to OIDCProviderConfig
  */
 
-import type { OIDCProviderConfig, FromEnvironmentOptions } from './types.js';
+import { readFileSync } from 'fs';
+import type {
+  OIDCProviderConfig,
+  FromEnvironmentOptions,
+  OIDCProviderMetadata,
+} from './types.js';
 import { OIDCProviderAdapter } from './oidc-adapter.js';
 
 /**
@@ -18,12 +23,15 @@ const DEFAULT_SCOPES = ['openid', 'profile', 'email'];
  * - IDENTITY_CLIENT_ID -> clientId
  * - IDENTITY_CLIENT_SECRET -> clientSecret
  * - IDENTITY_SERVER_URL -> issuer (for OIDC discovery)
+ * - IDENTITY_SERVER_METADATA_FILE -> metadata (static metadata file, skips discovery)
  * - IDENTITY_REDIRECT_URI -> redirectUri
  * - IDENTITY_SCOPE -> scopes (split by spaces and commas)
  *
+ * Note: If IDENTITY_SERVER_METADATA_FILE is provided, static metadata is used instead of OIDC discovery.
+ *
  * @param options - Configuration options
  * @returns Configured OIDCProviderAdapter instance
- * @throws Error if required environment variables are missing
+ * @throws Error if required environment variables are missing or metadata file cannot be loaded
  */
 export function fromEnvironment(
   options: FromEnvironmentOptions = {}
@@ -37,6 +45,7 @@ export function fromEnvironment(
     IDENTITY_CLIENT_SECRET,
     IDENTITY_SERVER_URL,
     IDENTITY_REDIRECT_URI,
+    IDENTITY_SERVER_METADATA_FILE,
   } = env;
 
   const clientId = IDENTITY_CLIENT_ID || '';
@@ -53,6 +62,22 @@ export function fromEnvironment(
         .map((s) => s.trim())
     : defaultScopes;
 
+  // Load static metadata if provided, otherwise use issuer for discovery
+  let metadata: OIDCProviderMetadata | undefined;
+  if (IDENTITY_SERVER_METADATA_FILE) {
+    try {
+      const metadataContent = readFileSync(
+        IDENTITY_SERVER_METADATA_FILE,
+        'utf-8'
+      );
+      metadata = JSON.parse(metadataContent) as OIDCProviderMetadata;
+    } catch (error) {
+      throw new Error(
+        `Failed to load IDENTITY_SERVER_METADATA_FILE: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
   // Ensure issuer URL is properly formatted
   // Remove trailing slash for consistency with OIDC discovery
   const issuer = serverUrl.replace(/\/$/, '');
@@ -61,7 +86,7 @@ export function fromEnvironment(
   const config: OIDCProviderConfig = {
     clientId,
     clientSecret,
-    issuer,
+    ...(metadata ? { metadata } : { issuer }),
     redirectUri,
     scopes,
   };

@@ -125,7 +125,7 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
       this.logger.info('Starting OIDC provider initialization', {
         stage: 'initialize',
         hasIssuer: Boolean(this.oidcConfig.issuer),
-        hasMetadata: Boolean(this.oidcConfig.serverMetadata),
+        hasMetadata: Boolean(this.oidcConfig.metadata),
       });
 
       // Validate storage hook shape and basic health

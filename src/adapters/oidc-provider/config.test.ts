@@ -1,7 +1,7 @@
 /**
  * Config validation unit tests
  * Tests Zod schema validation for the specific requirements:
- * - issuer vs serverMetadata exclusivity/requirements
+ * - issuer vs metadata exclusivity/requirements
  * - clientId/clientSecret validation
  * - scopes format and defaults
  * - timeouts shape
@@ -22,7 +22,7 @@ import {
 } from '../../fixtures/test-data.js';
 
 describe('OIDCProviderConfig Validation', function () {
-  describe('issuer vs serverMetadata exclusivity/requirements', function () {
+  describe('issuer vs metadata exclusivity/requirements', function () {
     it('should validate valid configuration with issuer', function () {
       const validConfig = createOIDCConfig();
 
@@ -30,14 +30,14 @@ describe('OIDCProviderConfig Validation', function () {
       expect(result).to.deep.equal(validConfig);
     });
 
-    it('should validate valid configuration with serverMetadata', function () {
+    it('should validate valid configuration with metadata', function () {
       const validConfig = createOIDCConfigWithMetadata();
 
       const result = validate(validConfig);
       expect(result).to.deep.equal(validConfig);
     });
 
-    it('should throw ZodError for both issuer and serverMetadata', function () {
+    it('should throw ZodError for both issuer and metadata', function () {
       const invalidConfig = createInvalidOIDCConfig('both-issuer-metadata');
 
       try {
@@ -49,7 +49,7 @@ describe('OIDCProviderConfig Validation', function () {
       }
     });
 
-    it('should throw ZodError for neither issuer nor serverMetadata', function () {
+    it('should throw ZodError for neither issuer nor metadata', function () {
       const invalidConfig = {
         clientId: 'test-client-id',
         scopes: ['openid'],
@@ -77,7 +77,7 @@ describe('OIDCProviderConfig Validation', function () {
       }
     });
 
-    it('should throw ZodError for malformed serverMetadata', function () {
+    it('should throw ZodError for malformed metadata', function () {
       const invalidConfig = createInvalidOIDCConfig('malformed-metadata');
 
       try {
