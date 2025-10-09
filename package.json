@@ -1,5 +1,5 @@
 {
-  "name": "mcp-oauth-provider-adapters",
+  "name": "@heroku/oauth-provider-adapters-for-mcp",
   "version": "0.0.0",
   "description": "An OAuth adapter framework for developers that can add OAuth providers to remote MCP servers with minimal friction.",
   "type": "module",
@@ -29,18 +29,20 @@
     "format": "pnpm run prettier && pnpm run lint:fix",
     "pretest": "pnpm run build:cjs && pnpm run build:esm && pnpm run type-check",
     "type-check": "tsc --noEmit -p tsconfig.json",
-    "lint-staged": "npx lint-staged"
+    "lint-staged": "npx lint-staged",
+    "check": "pnpm run format && pnpm run type-check && pnpm test",
+    "ci": "pnpm run lint && pnpm run type-check && pnpm test"
   },
   "author": "Heroku",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/heroku/mcp-oauth-provider-adapters.git"
+    "url": "git+https://github.com/heroku/oauth-provider-adapters-for-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/heroku/mcp-oauth-provider-adapters/issues"
+    "url": "https://github.com/heroku/oauth-provider-adapters-for-mcp/issues"
   },
-  "homepage": "https://github.com/heroku/mcp-oauth-provider-adapters#readme",
+  "homepage": "https://github.com/heroku/oauth-provider-adapters-for-mcp#readme",
   "files": [
     "dist/",
     "src/",
@@ -48,6 +50,8 @@
     "LICENSE"
   ],
   "dependencies": {
+    "http-errors": "^2.0.0",
+    "http-status-codes": "^2.3.0",
     "openid-client": "^6.8.1",
     "tslib": "^2.8.1",
     "zod": "^4.1.12"
@@ -64,8 +68,6 @@
     "c8": "^10.1.3",
     "chai": "^6.2.0",
     "eslint": "^9.37.0",
-    "http-errors": "^2.0.0",
-    "http-status-codes": "^2.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.3",
     "mocha": "^11.7.4",

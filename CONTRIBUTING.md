@@ -21,9 +21,9 @@ Use GitHub Issues page to submit issues, enhancement requests and discuss ideas.
 ### Bug Reports and Fixes
 
 - If you find a bug, please search for it in the
-  [Issues](https://github.com/heroku/mcp-oauth-provider-adapters/issues), and if
-  it isn't already tracked,
-  [create a new issue](https://github.com/heroku/mcp-oauth-provider-adapters/issues/new).
+  [Issues](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues),
+  and if it isn't already tracked,
+  [create a new issue](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/new).
   Fill out the "Bug Report" section of the issue template. Even if an Issue is
   closed, feel free to comment and add details, it will still be reviewed.
 - Issues that have already been identified as a bug (note: able to reproduce)
@@ -36,7 +36,7 @@ Use GitHub Issues page to submit issues, enhancement requests and discuss ideas.
 
 - If you'd like to add new functionality to this project, describe the problem
   you want to solve in a
-  [new Issue](https://github.com/heroku/mcp-oauth-provider-adapters/issues/new).
+  [new Issue](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/new).
 - Issues that have been identified as a feature request will be labelled
   `enhancement`.
 - If you'd like to implement the new feature, please wait for feedback from the
@@ -54,7 +54,7 @@ Use GitHub Issues page to submit issues, enhancement requests and discuss ideas.
   [send a Pull Request](#creating_a_pull_request) with the changes you have in
   mind.
 - If not,
-  [open an Issue](https://github.com/heroku/mcp-oauth-provider-adapters/issues/new)
+  [open an Issue](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/new)
   to discuss the idea first.
 
 If you're new to our project and looking for some way to make your first

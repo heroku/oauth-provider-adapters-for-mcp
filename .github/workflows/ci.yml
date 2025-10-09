@@ -22,4 +22,4 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - run: pnpm run ci
