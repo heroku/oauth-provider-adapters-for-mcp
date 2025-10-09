@@ -7,7 +7,7 @@ This project provides a base adapter contract, structured logging, and a
 standards-compliant OIDC provider implementation (discovery, PKCE S256, code
 exchange, refresh) with normalized errors and configuration validation.
 
-## Why this exists
+## Benefits
 
 - Normalize provider integrations behind a single contract
 - Enforce consistent error handling and structured, PII-safe logging
@@ -16,6 +16,8 @@ exchange, refresh) with normalized errors and configuration validation.
 
 ## Scripts
 
+A list of useful scripts when developing against the codebase:
+
 ```bash
 pnpm run build      # builds CJS + ESM to dist/
 pnpm test           # runs unit tests with coverage (c8 + mocha)
@@ -23,46 +25,53 @@ pnpm run lint       # eslint
 pnpm run type-check # tsc --noEmit
 ```
 
-## Implementing OIDC in a Remote MCP Server (with Auth0 example)
+## Implementing OIDC in a Remote MCP Server (with Auth0 Example)
 
-This guide shows how to integrate `mcp-oauth-provider-adapters` into a Remote
+This guide shows how to integrate `mcp-oauth-provider-adapters` into a remote
 MCP server and implement an OIDC provider using both discovery and static
-metadata. We’ll use
-`[remote-mcp-auth0](https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-auth0)`
+metadata. It uses
+`[remote MCP with Auth0 from Cloudflare](https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-auth0)`
 as an example.
 
 ### Prerequisites
 
 - Node.js ≥ 20
-- An OIDC provider (e.g., Auth0 Tenant)
-- Remote MCP server (e.g., Cloudflare Workers or Node server)
+- An OIDC provider (for example, Auth0 Tenant)
+- A remote MCP server (for example, Cloudflare Workers or Node server)
 - [MCP Remote Auth Proxy](https://github.com/heroku/mcp-remote-auth-proxy) - An
   MCP auth proxy within your Heroku app that enables you to use a remote MCP
   server
 
 ### Install
 
-```bash
-# npm
-npm install @heroku/oauth-provider-adapters-for-mcp
+- npm:
 
-# yarn
-yarn add @heroku/oauth-provider-adapters-for-mcp
+  ```bash
+  npm install @heroku/oauth-provider-adapters-for-mcp
+  ```
 
-# pnpm
-pnpm add @heroku/oauth-provider-adapters-for-mcp
-```
+- pnpm:
 
-### Choose a configuration mode
+  ```bash
+  pnpm add @heroku/oauth-provider-adapters-for-mcp
+  ```
+
+- yarn:
+
+  ```bash
+  yarn add @heroku/oauth-provider-adapters-for-mcp
+  ```
+
+### Choose a Configuration Mode
 
 You can configure the `OIDCProviderAdapter` with:
 
 - **Discovery**: Provide an `issuer` (recommended)
 - **Static metadata**: Provide `metadata` (useful in restricted environments)
 
-Exactly one of `issuer` or `metadata` must be provided.
+You must provide exactly one of `issuer` or `metadata`.
 
-### Quickstart with Auth0 (discovery)
+### Quickstart with Auth0 (Discovery)
 
 Auth0 issuer pattern: `https://<your-tenant>.auth0.com`
 
@@ -93,8 +102,8 @@ const authUrl = await adapter.generateAuthUrl(
 // Redirect user to authUrl
 
 // Handle OAuth callback
-// Retrieve the `code` from the OAuth callback query parameters (e.g., req.query.code or event.queryStringParameters.code)
-// Retrieve the PKCE `code_verifier` you previously stored for this interaction (e.g., from a secure session, database, or in-memory store keyed by `state`)
+// Retrieve the `code` from the OAuth callback query parameters (for example, `req.query.code` or `event.queryStringParameters.code`)
+// Retrieve the PKCE `code_verifier` you previously stored for this interaction (for example, from a secure session, database, or in-memory store keyed by `state`)
 const tokens = await adapter.exchangeCode(
   code,
   codeVerifier,
@@ -116,17 +125,15 @@ AUTH0_AUDIENCE=<optional resource API identifier>
 IDENTITY_REDIRECT_URI=https://<your-remote-mcp-host>/oauth/callback
 ```
 
-Tip: For most use cases, you can simplify configuration by using the
-`fromEnvironmentAsync` convenience helper.
+For most use cases, you can simplify configuration by using the
+`fromEnvironmentAsync` convenience helper. It reduces boilerplate and helps
+ensure your adapter is configured consistently across environments. It's
+especially useful in production or CI/CD setups, where secrets and configuration
+are injected via environment variables, and helps prevent accidental
+misconfiguration. This helper automatically reads all required OIDC
+configurations from the supported environment variables.
 
-This helper automatically reads all required OIDC configurations from
-environment variables following common naming conventions (see below). This
-reduces boilerplate and helps ensure your adapter is configured consistently
-across environments. It is especially useful in production or CI/CD setups where
-secrets and configuration are injected via environment variables, and it helps
-prevent accidental misconfiguration.
-
-Environemnt variables supported:
+Supported environment variables:
 
 - `IDENTITY_CLIENT_ID` -> clientId
 - `IDENTITY_CLIENT_SECRET` -> clientSecret
@@ -137,15 +144,13 @@ Environemnt variables supported:
 - `IDENTITY_SCOPE` -> scopes (split by spaces and commas)
 
 You can still override or extend the configuration by passing additional
-options, such as `customParameters` for provider-specific needs (e.g., Auth0's
-`audience`).
+options, such as `customParameters` for provider-specific needs (for example,
+Auth0's `audience`).
 
-Example:
+### Using Static Metadata Example (No Discovery)
 
-### Using static metadata (no discovery)
-
-Fetch your provider’s metadata once from `/.well-known/openid-configuration`,
-then embed a subset:
+Fetch your provider’s metadata from `/.well-known/openid-configuration`, then
+embed a subset:
 
 ```ts
 import { OIDCProviderAdapter } from '@heroku/oauth-provider-adapters-for-mcp';
@@ -174,11 +179,11 @@ const adapter = new OIDCProviderAdapter({
 await adapter.initialize();
 ```
 
-### PKCE state storage
+### PKCE State Storage
 
 `OIDCProviderAdapter` requires storing the PKCE verifier securely between the
 authorize and callback steps. In development, an in-memory mock is used. In
-production you must provide a durable `storageHook` that implements:
+production, you must provide a durable `storageHook`:
 
 ```ts
 interface PKCEStorageHook {
@@ -198,9 +203,9 @@ interface PKCEStorageHook {
 
 Examples:
 [Heroku Key-Value Store](https://devcenter.heroku.com/articles/heroku-redis),
-Redis or your database.
+Redis, or your database.
 
-### Wiring into a Remote MCP server
+### Connecting to a Remote MCP Server
 
 At minimum, your server needs routes that:
 
@@ -209,7 +214,7 @@ At minimum, your server needs routes that:
   `adapter.exchangeCode(...)`
 - Optionally expose a refresh path that calls `adapter.refreshToken(...)`
 
-### Error handling and logging
+### Error Handling and Logging
 
 Errors are normalized to:
 
@@ -223,14 +228,14 @@ type OAuthError = {
 };
 ```
 
-#### Logger injection
+#### Logger Injection
 
 The adapter performs PII-safe, structured logging and retries with backoff for
-discovery. In addition, we support logger injection via `LogTransport` so logs
-integrate with your observability stack. Below is an example of how to demo
+discovery. In addition, we support logger injection with `LogTransport` so logs
+integrate with your observability stack. Here's an example of how to demo
 logging capabilities using the `winston` logger used in `mcp-remote-auth-proxy`.
 
-1. Import required types
+1. Import required types:
 
 ```javascript
 import {
@@ -241,7 +246,7 @@ import {
 import winstonLogger from './winstonLogger.js';
 ```
 
-2. Create a LogTransport wrapper
+2. Create a LogTransport wrapper:
 
 ```javascript
 // Create a LogTransport that wraps Winston
@@ -258,7 +263,7 @@ const winstonTransport = {
 };
 ```
 
-3. Create DefaultLogger with the Winston transport
+3. Create DefaultLogger with the Winston transport:
 
 ```javascript
 // Create DefaultLogger that uses Winston as transport
@@ -272,7 +277,7 @@ const adapterLogger = new DefaultLogger(
 );
 ```
 
-4. Pass the logger to the adapter
+4. Pass the logger to the adapter:
 
 ```javascript
 const oidcAdapter = await fromEnvironmentAsync({

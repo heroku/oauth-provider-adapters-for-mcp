@@ -3,7 +3,7 @@
 This project welcomes new provider adapters that follow a consistent, secure,
 and testable contract.
 
-### Core contract
+### Core Contract
 
 All adapters extend `BaseOAuthAdapter` and must implement:
 
@@ -17,16 +17,16 @@ All adapters extend `BaseOAuthAdapter` and must implement:
 
 Use `ErrorNormalizer` to convert unknown errors into `OAuthError` consistently.
 
-### OIDC adapter shape (reference)
+### OIDC Adapter Shape Reference
 
-The included `OIDCProviderAdapter` shows recommended patterns:
+The included `OIDCProviderAdapter` shows recommended patterns for adapters:
 
 - Zod-based config validation (`config.ts`)
 - Optional discovery vs static metadata
 - PKCE S256 enforcement and secure state storage via `PKCEStorageHook`
 - PII-safe structured logging
 
-### File layout for a new adapter
+### File Layout for a New Adapter
 
 ```
 src/adapters/<provider>/
@@ -39,30 +39,32 @@ src/adapters/<provider>/
   *.test.ts                # unit tests
 ```
 
-### Configuration validation
+### Configuration Validation
 
 Define a Zod schema that enforces exactly one of `issuer` or `metadata` (for
 OIDC-like providers) and validates URLs. Export `validate` and `safeValidate`
 helpers.
 
-### PKCE storage (production requirement)
+### PKCE Storage (Production Requirement)
 
 If your adapter uses PKCE, require a durable storage hook in production. Use
 `enforceProductionStorage` from the base class to prevent unsafe in-memory
 fallbacks.
 
-### Error handling
+### Error Handling
 
 - Wrap provider/HTTP SDK calls with `executeWithResilience` where
   retries/circuit breakers help.
-- Normalize all thrown errors via `normalizeError` or `createStandardError`.
-- Avoid logging secrets; rely on built-in redaction.
+- Normalize all thrown errors with `normalizeError` or `createStandardError`.
+- Avoid logging secrets and rely on built-in redaction.
 
 ### Tests
 
-- Co-locate `*.test.ts` next to source files
+- Put your `*.test.ts` file next to source files.
 
-### Adapter acceptance checklist
+### Adapter Acceptance Checklist
+
+Check that the adapter:
 
 - Implements all abstract methods from `BaseOAuthAdapter`
 - Validates config with Zod
@@ -71,7 +73,7 @@ fallbacks.
 - Includes unit tests and passes
   `pnpm run type-check && pnpm test && pnpm run lint`
 
-### Example adapter: GitHub OAuth (non-OIDC)
+### Example Adapter: GitHub OAuth (non-OIDC)
 
 This example shows how to build a GitHub OAuth adapter extending
 `BaseOAuthAdapter`.
@@ -81,10 +83,10 @@ Provider endpoints:
 - Authorization: `https://github.com/login/oauth/authorize`
 - Token: `https://github.com/login/oauth/access_token`
 
-Key quirks:
+When building a GitHub OAuth adapter:
 
-- No OIDC discovery; static endpoints only
-- No refresh tokens; return `unsupported_grant_type` in `refreshToken`
+- No OIDC discovery, use static endpoints only
+- No refresh tokens, return `unsupported_grant_type` in `refreshToken`
 - Accept header `application/json` recommended for token responses
 
 ```ts
@@ -128,7 +130,7 @@ export class GitHubOAuthAdapter extends BaseOAuthAdapter {
       );
     }
 
-    // GitHub does not require PKCE for this flow; include standard params
+    // GitHub does not require PKCE for this flow, include standard params
     const params = {
       client_id: this['config'].clientId,
       redirect_uri: redirectUrl,
