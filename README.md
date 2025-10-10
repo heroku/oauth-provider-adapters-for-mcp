@@ -41,7 +41,7 @@ pnpm type-check
 pnpm check
 
 # Run the continuous integration checks (linting, type checking, and tests):
-pnpm ci
+pnpm ci-check
 ```
 
 ## Implementing OIDC in a Remote MCP Server (with Auth0 Example)
