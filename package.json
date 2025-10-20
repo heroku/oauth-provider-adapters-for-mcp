@@ -1,6 +1,6 @@
 {
   "name": "@heroku/oauth-provider-adapters-for-mcp",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "An OAuth adapter framework for developers that can add OAuth providers to remote MCP servers with minimal friction.",
   "type": "module",
   "packageManager": "pnpm@10.18.1",
