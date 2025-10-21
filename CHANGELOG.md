@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.0...oauth-provider-adapters-for-mcp-v1.0.1) (2025-10-21)
+
+
+### Miscellaneous
+
+* removing prerelease flag to enable stable release ([#21](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/21)) ([af8ce20](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/af8ce2037bce1d7f1f0738c2fc472a4bcb5c8b74))
+* use trusted publishers ([#23](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/23)) ([cced5c2](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/cced5c284b7e8cacdc72e8ab1035f6076f943a52))
+
 ## 1.0.0 (2025-10-21)
 
 
