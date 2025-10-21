@@ -77,5 +77,3 @@ jobs:
               pnpm publish --tag beta --provenance --no-git-checks
             fi
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
