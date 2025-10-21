@@ -16,9 +16,7 @@
         { "type": "docs", "section": "Documentation", "hidden": false },
         { "type": "tests", "section": "Tests", "hidden": false },
         { "type": "chore", "section": "Miscellaneous", "hidden": false }
-      ],
-      "prerelease": true,
-      "prerelease-type": "beta"
+      ]
     }
   }
 }
