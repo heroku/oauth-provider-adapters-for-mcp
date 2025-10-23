@@ -41,7 +41,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org/'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Enable Corepack
         run: corepack enable
@@ -100,10 +100,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org/'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Update npm for trusted publishing
+        run: pnpm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install
@@ -128,16 +131,16 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "DRY RUN: Validating publish process..."
             if [ "${{ github.event.inputs.release_type }}" = "stable" ]; then
-              pnpm publish --dry-run --provenance --no-git-checks
+              npm publish --dry-run --provenance --no-git-checks
             else
-              pnpm publish --dry-run --tag beta --provenance --no-git-checks
+              npm publish --dry-run --tag beta --provenance --no-git-checks
             fi
           else
             echo "Publishing version $(node -p "require('./package.json').version") to npm..."
             if [ "${{ github.event.inputs.release_type }}" = "stable" ]; then
-              pnpm publish --provenance --no-git-checks
+              npm publish --provenance --no-git-checks
             else
-              pnpm publish --tag beta --provenance --no-git-checks
+              npm publish --tag beta --provenance --no-git-checks
             fi
             echo "Successfully published version $(node -p "require('./package.json').version")"
           fi
