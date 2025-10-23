@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.1](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.0...oauth-provider-adapters-for-mcp-v1.0.1) (2025-10-23)
+
+
+### Documentation
+
+* a few README corrections ([#24](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/24)) ([f60769c](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/f60769ccad24f48c8a59904f2dd60b503d9f59df))
+
+
+### Miscellaneous
+
+* adding slash at the end of the registry to resolve 404 ([8e2d1eb](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/8e2d1eb53f01b5c43aefc3663f2d3f4e7245ffda))
+* enabling release with forced option and skipping PR creation on dry runs ([1f275ef](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/1f275efe176a50252c1ad931672079d71faadf76))
+* removing prerelease flag to enable stable release ([#21](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/21)) ([af8ce20](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/af8ce2037bce1d7f1f0738c2fc472a4bcb5c8b74))
+* use trusted publishers ([#23](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/23)) ([cced5c2](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/cced5c284b7e8cacdc72e8ab1035f6076f943a52))
+
 ## 1.0.0 (2025-10-21)
 
 ### Features
