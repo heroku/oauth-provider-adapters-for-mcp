@@ -82,11 +82,12 @@ jobs:
           release-as:
             ${{ github.event.inputs.force_release == 'true' &&
             github.event.inputs.version_bump || '' }}
-          target-branch: ${{ github.ref_name }}
 
   publish:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    if:
+      ${{ needs.release-please.outputs.release_created ||
+      github.event.inputs.force_release == 'true' }}
     runs-on: pub-hk-ubuntu-24.04-ip
     permissions:
       contents: write
@@ -94,7 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ needs.release-please.outputs.tag_name || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -106,6 +107,15 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Handle force release version bump
+        if:
+          ${{ github.event.inputs.force_release == 'true' &&
+          needs.release-please.outputs.release_created != 'true' }}
+        run: |
+          echo "Applying force release version bump: ${{ github.event.inputs.version_bump }}"
+          npm version ${{ github.event.inputs.version_bump }} --no-git-tag-version
+          echo "{\".\": \"$(node -p "require('./package.json').version")\"}" > .release-please-manifest.json
 
       - name: Build package
         run: pnpm run build
