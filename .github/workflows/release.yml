@@ -16,6 +16,21 @@ on:
         required: false
         default: false
         type: boolean
+      force_release:
+        description:
+          'Force a release even if no conventional commits warrant one'
+        required: false
+        default: false
+        type: boolean
+      version_bump:
+        description: 'Version bump type (only used when force_release is true)'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   release-please:
@@ -33,10 +48,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
+
+      - name: Force release (manual override)
+        if:
+          ${{ github.event.inputs.force_release == 'true' &&
+          steps.release.outputs.release_created != 'true' }}
+        run: |
+          echo "Force release requested with version bump: ${{ github.event.inputs.version_bump }}"
+          # Manual version bump and tag creation will be handled here
 
   publish:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    if:
+      ${{ needs.release-please.outputs.release_created ||
+      github.event.inputs.force_release == 'true' }}
     runs-on: pub-hk-ubuntu-24.04-ip
     permissions:
       contents: read
