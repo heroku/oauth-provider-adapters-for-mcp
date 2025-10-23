@@ -105,6 +105,9 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
+      - name: Use latest pnpm version
+        run: corepack use pnpm@latest-10
+
       - name: Update npm for trusted publishing
         run: npm install -g npm@latest
 
@@ -131,16 +134,16 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "DRY RUN: Validating publish process..."
             if [ "${{ github.event.inputs.release_type }}" = "stable" ]; then
-              npm publish --dry-run --provenance
+              pnpm publish --dry-run --provenance --no-git-checks
             else
-              npm publish --dry-run --tag beta --provenance
+              pnpm publish --dry-run --tag beta --provenance --no-git-checks
             fi
           else
             echo "Publishing version $(node -p "require('./package.json').version") to npm..."
             if [ "${{ github.event.inputs.release_type }}" = "stable" ]; then
-              npm publish --provenance
+              pnpm publish --provenance --no-git-checks
             else
-              npm publish --tag beta --provenance
+              pnpm publish --tag beta --provenance --no-git-checks
             fi
             echo "Successfully published version $(node -p "require('./package.json').version")"
           fi
