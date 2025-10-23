@@ -106,7 +106,7 @@ jobs:
         run: corepack enable
 
       - name: Update npm for trusted publishing
-        run: pnpm install -g npm@latest
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install
