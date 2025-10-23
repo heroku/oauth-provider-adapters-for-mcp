@@ -33,7 +33,33 @@ on:
           - major
 
 jobs:
+  validate:
+    runs-on: pub-hk-ubuntu-24.04-ip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run linting
+        run: pnpm run lint
+
+      - name: Run type checking
+        run: pnpm run type-check
+
+      - name: Run tests
+        run: pnpm test
+
   release-please:
+    needs: validate
     runs-on: pub-hk-ubuntu-24.04-ip
     permissions:
       contents: write
@@ -41,6 +67,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      pr_number: ${{ steps.release.outputs.pr_number }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -49,26 +76,21 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
-
-      - name: Force release (manual override)
-        if:
-          ${{ github.event.inputs.force_release == 'true' &&
-          steps.release.outputs.release_created != 'true' }}
-        run: |
-          echo "Force release requested with version bump: ${{ github.event.inputs.version_bump }}"
-          # Manual version bump and tag creation will be handled here
+          release-as:
+            ${{ github.event.inputs.force_release == 'true' &&
+            github.event.inputs.version_bump || '' }}
 
   publish:
     needs: release-please
-    if:
-      ${{ needs.release-please.outputs.release_created ||
-      github.event.inputs.force_release == 'true' }}
+    if: ${{ needs.release-please.outputs.release_created }}
     runs-on: pub-hk-ubuntu-24.04-ip
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -84,7 +106,7 @@ jobs:
       - name: Build package
         run: pnpm run build
 
-      - name: Run tests
+      - name: Run tests with new version
         run: pnpm test
 
       - name: Publish to npm
@@ -97,9 +119,11 @@ jobs:
               pnpm publish --dry-run --tag beta --provenance --no-git-checks
             fi
           else
+            echo "Publishing version $(node -p "require('./package.json').version") to npm..."
             if [ "${{ github.event.inputs.release_type }}" = "stable" ]; then
               pnpm publish --provenance --no-git-checks
             else
               pnpm publish --tag beta --provenance --no-git-checks
             fi
+            echo "Successfully published version $(node -p "require('./package.json').version")"
           fi

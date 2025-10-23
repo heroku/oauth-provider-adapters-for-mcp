@@ -46,8 +46,8 @@ pnpm ci
 
 ## Implementing OIDC in a Remote MCP Server (with Auth0 Example)
 
-This guide shows how to integrate `oauth-provider-adapters-for-mcp` into a remote
-MCP server and implement an OIDC provider using both discovery and static
+This guide shows how to integrate `oauth-provider-adapters-for-mcp` into a
+remote MCP server and implement an OIDC provider using both discovery and static
 metadata. It uses
 [remote MCP with Auth0 from Cloudflare](https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-auth0)
 as an example.
