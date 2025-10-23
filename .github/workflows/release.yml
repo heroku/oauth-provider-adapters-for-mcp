@@ -105,8 +105,10 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
-      - name: Update npm for trusted publishing
-        run: pnpm install -g pnpm@latest
+      - name: Setup pnpm and update to latest
+        run: |
+          pnpm setup
+          pnpm install -g pnpm@latest
 
       - name: Install dependencies
         run: pnpm install
