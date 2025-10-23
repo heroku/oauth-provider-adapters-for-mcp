@@ -82,6 +82,7 @@ jobs:
           release-as:
             ${{ github.event.inputs.force_release == 'true' &&
             github.event.inputs.version_bump || '' }}
+          target-branch: ${{ github.ref_name }}
 
   publish:
     needs: release-please
