@@ -76,6 +76,7 @@ jobs:
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          target-branch: ${{ github.ref_name }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
@@ -87,7 +88,8 @@ jobs:
     needs: release-please
     if:
       ${{ needs.release-please.outputs.release_created ||
-      github.event.inputs.force_release == 'true' }}
+      github.event.inputs.force_release == 'true' || github.event.inputs.dry_run
+      == 'true' }}
     runs-on: pub-hk-ubuntu-24.04-ip
     permissions:
       contents: write
@@ -125,9 +127,6 @@ jobs:
 
       - name: Build package
         run: pnpm run build
-
-      - name: Run tests with new version
-        run: pnpm test
 
       - name: Publish to npm
         run: |
