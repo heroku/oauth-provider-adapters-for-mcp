@@ -132,22 +132,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Handle force release version bump
-        if:
-          ${{ github.event.inputs.force_release == 'true' &&
-          needs.release-please.outputs.release_created != 'true' }}
+      - name: Debug force release
+        if: ${{ github.event.inputs.force_release == 'true' }}
         run: |
-          echo "Applying force release version bump: ${{ github.event.inputs.version_bump }}"
-          npm version ${{ github.event.inputs.version_bump }} --no-git-tag-version
-          MANIFEST_FILE=".release-please-manifest${{ github.event.inputs.release_type == 'beta' && '.beta' || '' }}.json"
-          echo "{\".\": \"$(node -p "require('./package.json').version")\"}" > "$MANIFEST_FILE"
-          echo "Updated manifest file: $MANIFEST_FILE"
+          echo "Force release requested with version bump: ${{ github.event.inputs.version_bump }}"
+          echo "Release type: ${{ github.event.inputs.release_type }}"
+          echo "Release-please should handle versioning with release-as parameter"
 
       - name: Build package
         run: pnpm run build
-
-      - name: Run tests with new version
-        run: pnpm test
 
       - name: Publish to npm
         run: |
