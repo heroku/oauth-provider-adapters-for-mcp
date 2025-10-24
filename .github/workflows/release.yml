@@ -71,6 +71,7 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       pr_number: ${{ steps.release.outputs.pr_number }}
+      release_version: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Validate release type for branch
         if:
@@ -95,6 +96,13 @@ jobs:
           release-as:
             ${{ github.event.inputs.force_release == 'true' &&
             github.event.inputs.version_bump || '' }}
+
+      - name: Output release version
+        run: |
+          echo "Release type: ${{ github.event.inputs.release_type }}"
+          echo "Release created: ${{ steps.release.outputs.release_created }}"
+          echo "Tag name: ${{ steps.release.outputs.tag_name }}"
+          echo "Release version: ${{ steps.release.outputs.tag_name }}"
 
   publish:
     needs: release-please
