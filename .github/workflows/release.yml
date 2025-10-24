@@ -82,9 +82,6 @@ jobs:
           release-as:
             ${{ github.event.inputs.force_release == 'true' &&
             github.event.inputs.version_bump || '' }}
-          versioning-strategy:
-            ${{ github.event.inputs.release_type == 'beta' && 'prerelease' ||
-            'default' }}
 
   publish:
     needs: release-please
