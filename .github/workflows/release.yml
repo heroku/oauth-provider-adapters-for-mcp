@@ -72,12 +72,24 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       pr_number: ${{ steps.release.outputs.pr_number }}
     steps:
+      - name: Validate release type for branch
+        if:
+          github.event.inputs.release_type == 'stable' && github.ref_name !=
+          'main'
+        run: |
+          echo "Error: Stable releases can only be created from main branch"
+          exit 1
+
       - uses: googleapis/release-please-action@v4
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          config-file:
+            release-please-config${{ github.event.inputs.release_type == 'beta'
+            && '.beta' || '' }}.json
+          manifest-file:
+            .release-please-manifest${{ github.event.inputs.release_type ==
+            'beta' && '.beta' || '' }}.json
           skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
           release-as:
             ${{ github.event.inputs.force_release == 'true' &&
@@ -118,7 +130,9 @@ jobs:
         run: |
           echo "Applying force release version bump: ${{ github.event.inputs.version_bump }}"
           npm version ${{ github.event.inputs.version_bump }} --no-git-tag-version
-          echo "{\".\": \"$(node -p "require('./package.json').version")\"}" > .release-please-manifest.json
+          MANIFEST_FILE=".release-please-manifest${{ github.event.inputs.release_type == 'beta' && '.beta' || '' }}.json"
+          echo "{\".\": \"$(node -p "require('./package.json').version")\"}" > "$MANIFEST_FILE"
+          echo "Updated manifest file: $MANIFEST_FILE"
 
       - name: Build package
         run: pnpm run build
