@@ -81,9 +81,10 @@ jobs:
           skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
           release-as:
             ${{ github.event.inputs.force_release == 'true' &&
-            github.event.inputs.version_bump ||
-            (github.event.inputs.release_type == 'beta' && 'prerelease') || ''
-            }}
+            github.event.inputs.version_bump || '' }}
+          versioning-strategy:
+            ${{ github.event.inputs.release_type == 'beta' && 'prerelease' ||
+            'default' }}
 
   publish:
     needs: release-please
