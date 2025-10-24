@@ -94,16 +94,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target-branch: ${{ github.ref_name }}
-          config-file:
-            release-please-config${{ github.event.inputs.release_type == 'beta'
-            && '.beta' || '' }}.json
-          manifest-file:
-            .release-please-manifest${{ github.event.inputs.release_type ==
-            'beta' && '.beta' || '' }}.json
-          skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
           release-as:
             ${{ github.event.inputs.force_release == 'true' &&
             github.event.inputs.version_bump || '' }}
+          prerelease: ${{ github.event.inputs.release_type == 'beta' }}
+          prerelease-type:
+            ${{ github.event.inputs.release_type == 'beta' && 'beta' || '' }}
 
       - name: Output release version
         run: |
