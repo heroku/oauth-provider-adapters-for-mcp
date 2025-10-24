@@ -85,6 +85,8 @@ jobs:
           versioning-strategy:
             ${{ github.event.inputs.release_type == 'beta' && 'prerelease' ||
             'default' }}
+          prerelease-type:
+            ${{ github.event.inputs.release_type == 'beta' && 'beta' || '' }}
 
   publish:
     needs: release-please
