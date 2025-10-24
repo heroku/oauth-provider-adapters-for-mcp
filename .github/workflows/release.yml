@@ -81,6 +81,14 @@ jobs:
           echo "Error: Stable releases can only be created from main branch"
           exit 1
 
+      - name: Debug release-please inputs
+        run: |
+          echo "Force release: ${{ github.event.inputs.force_release }}"
+          echo "Version bump: ${{ github.event.inputs.version_bump }}"
+          echo "Release type: ${{ github.event.inputs.release_type }}"
+          echo "Dry run: ${{ github.event.inputs.dry_run }}"
+          echo "Release-as value: '${{ github.event.inputs.force_release == 'true' && github.event.inputs.version_bump || '' }}'"
+
       - uses: googleapis/release-please-action@v4
         id: release
         with:
