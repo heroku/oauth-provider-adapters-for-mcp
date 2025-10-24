@@ -33,40 +33,8 @@ on:
           - major
 
 jobs:
-  release-please:
+  validate:
     runs-on: pub-hk-ubuntu-24.04-ip
-    permissions:
-      contents: write
-      pull-requests: write
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-    steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
-
-      - name: Force release (manual override)
-        if:
-          ${{ github.event.inputs.force_release == 'true' &&
-          steps.release.outputs.release_created != 'true' }}
-        run: |
-          echo "Force release requested with version bump: ${{ github.event.inputs.version_bump }}"
-          # Manual version bump and tag creation will be handled here
-
-  publish:
-    needs: release-please
-    if:
-      ${{ needs.release-please.outputs.release_created ||
-      github.event.inputs.force_release == 'true' }}
-    runs-on: pub-hk-ubuntu-24.04-ip
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -81,11 +49,84 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build package
-        run: pnpm run build
+      - name: Run linting
+        run: pnpm run lint
+
+      - name: Run type checking
+        run: pnpm run type-check
 
       - name: Run tests
         run: pnpm test
+
+  release-please:
+    needs: validate
+    if:
+      ${{ github.ref_name == 'main' || github.event.inputs.release_type ==
+      'beta' }}
+    runs-on: pub-hk-ubuntu-24.04-ip
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      pr_number: ${{ steps.release.outputs.pr_number }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target-branch: ${{ github.ref_name }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-pull-request: ${{ github.event.inputs.dry_run == 'true' }}
+          release-as:
+            ${{ github.event.inputs.force_release == 'true' &&
+            github.event.inputs.version_bump || '' }}
+
+  publish:
+    needs: release-please
+    if:
+      ${{ needs.release-please.outputs.release_created ||
+      github.event.inputs.force_release == 'true' || github.event.inputs.dry_run
+      == 'true' }}
+    runs-on: pub-hk-ubuntu-24.04-ip
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Use latest pnpm version
+        run: corepack use pnpm@latest-10
+
+      - name: Update npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Handle force release version bump
+        if:
+          ${{ github.event.inputs.force_release == 'true' &&
+          needs.release-please.outputs.release_created != 'true' }}
+        run: |
+          echo "Applying force release version bump: ${{ github.event.inputs.version_bump }}"
+          npm version ${{ github.event.inputs.version_bump }} --no-git-tag-version
+          echo "{\".\": \"$(node -p "require('./package.json').version")\"}" > .release-please-manifest.json
+
+      - name: Build package
+        run: pnpm run build
 
       - name: Publish to npm
         run: |
@@ -97,9 +138,11 @@ jobs:
               pnpm publish --dry-run --tag beta --provenance --no-git-checks
             fi
           else
+            echo "Publishing version $(node -p "require('./package.json').version") to npm..."
             if [ "${{ github.event.inputs.release_type }}" = "stable" ]; then
               pnpm publish --provenance --no-git-checks
             else
               pnpm publish --tag beta --provenance --no-git-checks
             fi
+            echo "Successfully published version $(node -p "require('./package.json').version")"
           fi
