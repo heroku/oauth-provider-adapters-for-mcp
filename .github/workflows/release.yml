@@ -108,9 +108,17 @@ jobs:
       - name: Output release version
         run: |
           echo "Release type: ${{ github.event.inputs.release_type }}"
-          echo "Release created: ${{ steps.release.outputs.release_created }}"
-          echo "Tag name: ${{ steps.release.outputs.tag_name }}"
-          echo "Release version: ${{ steps.release.outputs.tag_name }}"
+          echo "Release created: '${{ steps.release.outputs.release_created }}'"
+          echo "Tag name: '${{ steps.release.outputs.tag_name }}'"
+          echo "Release version: '${{ steps.release.outputs.tag_name }}'"
+          echo "PR number: '${{ steps.release.outputs.pr_number }}'"
+          echo "Upload URL: '${{ steps.release.outputs.upload_url }}'"
+          echo "Version: '${{ steps.release.outputs.version }}'"
+
+          # Check if any outputs are actually set
+          if [ -z "${{ steps.release.outputs.release_created }}" ]; then
+            echo "WARNING: release_created is empty - release-please may not have created a release"
+          fi
 
   publish:
     needs: release-please

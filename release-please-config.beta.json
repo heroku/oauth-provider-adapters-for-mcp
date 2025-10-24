@@ -1,7 +1,6 @@
 {
   "packages": {
     ".": {
-      "bootstrap-sha": "68fc7c8",
       "release-type": "node",
       "package-name": "@heroku/oauth-provider-adapters-for-mcp",
       "prerelease": true,
