@@ -108,9 +108,6 @@ jobs:
       - name: Use latest pnpm version
         run: corepack use pnpm@latest-10
 
-      - name: Update npm for trusted publishing
-        run: npm install -g npm@latest
-
       - name: Install dependencies
         run: pnpm install
 
