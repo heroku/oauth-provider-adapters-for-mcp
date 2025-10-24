@@ -81,7 +81,7 @@ jobs:
           echo "Error: Stable releases can only be created from main branch"
           exit 1
 
-      - name: Debug release-please inputs
+      - name: Review release-please inputs
         run: |
           echo "Force release: ${{ github.event.inputs.force_release }}"
           echo "Version bump: ${{ github.event.inputs.version_bump }}"
@@ -122,9 +122,6 @@ jobs:
 
   publish:
     needs: release-please
-    if:
-      ${{ needs.release-please.outputs.release_created ||
-      github.event.inputs.force_release == 'true' }}
     runs-on: pub-hk-ubuntu-24.04-ip
     permissions:
       contents: write

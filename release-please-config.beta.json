@@ -5,7 +5,6 @@
       "package-name": "@heroku/oauth-provider-adapters-for-mcp",
       "prerelease": true,
       "prerelease-type": "beta",
-      "skip-github-release": true,
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "changelog-sections": [
