@@ -102,6 +102,24 @@ export const oidcMetadata = {
     token_endpoint: 'https://auth.example.com/token',
     jwks_uri: 'https://auth.example.com/.well-known/jwks.json',
   },
+
+  /**
+   * Metadata without jwks_uri - valid for providers like Heroku Identity
+   * that don't expose a JWKS endpoint
+   */
+  withoutJwksUri: {
+    issuer: 'https://id.heroku.com',
+    authorization_endpoint: 'https://id.heroku.com/oauth/authorize',
+    token_endpoint: 'https://id.heroku.com/oauth/token',
+    response_types_supported: ['code'],
+    grant_types_supported: ['authorization_code', 'refresh_token'],
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['RS256'],
+    token_endpoint_auth_methods_supported: [
+      'client_secret_post',
+      'client_secret_basic',
+    ],
+  },
 };
 
 export const authUrlData = {
