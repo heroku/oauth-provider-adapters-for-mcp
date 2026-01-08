@@ -7,8 +7,10 @@ coverage
 # Dependency directories
 node_modules/
 
-# Additional files
+# Environment variables
 .env
+
+# Build output
 /dist
 
 # Ignore Cursor files
