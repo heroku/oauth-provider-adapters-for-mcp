@@ -102,9 +102,6 @@ export function validateProviderMetadata(metadata: OIDCProviderMetadata): void {
   if (!metadata.token_endpoint) {
     throw new Error('Missing token_endpoint in provider metadata');
   }
-
-  // Note: jwks_uri is optional - not all OIDC providers expose a JWKS endpoint
-  // (e.g., Heroku Identity uses a different mechanism for token verification)
 }
 
 /**
