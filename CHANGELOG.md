@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.1](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.0...oauth-provider-adapters-for-mcp-v1.0.1) (2026-01-09)
+
+
+### Bug Fixes
+
+* make jwks_uri optional in OIDC provider metadata ([#38](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/38)) ([1bf7b42](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/1bf7b426682669966d2a1f2c04eb9e616cc1b8fb))
+
+
+### Documentation
+
+* a few README corrections ([#24](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/24)) ([f60769c](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/f60769ccad24f48c8a59904f2dd60b503d9f59df))
+
+
+### Miscellaneous
+
+* **deps:** bump glob from 10.4.5 to 10.5.0 ([#36](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/36)) ([9f23282](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/9f23282ad792a4bc9dd8a1d21c30b38c6043da88))
+* enabling release with forced option and skipping PR creation on dry runs ([#26](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/26)) ([645d7cf](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/645d7cf2cd7f8ad88f12ab55888f117b5d117473))
+* Fix 3PP dependency vulns ([#37](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/37)) ([21e0c9a](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/21e0c9abcf0ce21e0e3e1cd3b79d181f0e35337b))
+* fully enabling pnpm for release with beta release ([#28](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/28)) ([4abb77c](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/4abb77c001702db883f6c2f2ef873a82d19d97ed))
+* removing prerelease flag to enable stable release ([#21](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/21)) ([af8ce20](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/af8ce2037bce1d7f1f0738c2fc472a4bcb5c8b74))
+* use trusted publishers ([#23](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/23)) ([cced5c2](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/cced5c284b7e8cacdc72e8ab1035f6076f943a52))
+
 ## 1.0.0 (2025-10-21)
 
 ### Features
