@@ -102,10 +102,6 @@ export function validateProviderMetadata(metadata: OIDCProviderMetadata): void {
   if (!metadata.token_endpoint) {
     throw new Error('Missing token_endpoint in provider metadata');
   }
-
-  if (!metadata.jwks_uri) {
-    throw new Error('Missing jwks_uri in provider metadata');
-  }
 }
 
 /**

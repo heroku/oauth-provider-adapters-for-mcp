@@ -16,8 +16,8 @@ export interface OIDCProviderMetadata {
   token_endpoint: string;
   /** Userinfo endpoint URL (optional) */
   userinfo_endpoint?: string;
-  /** JWKS URI for token verification */
-  jwks_uri: string;
+  /** JWKS URI for token verification (optional - not all providers expose this) */
+  jwks_uri?: string;
   /** Supported response types */
   response_types_supported: string[];
   /** Supported grant types */
