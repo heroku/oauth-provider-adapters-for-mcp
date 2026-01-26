@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.2](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.1...oauth-provider-adapters-for-mcp-v1.0.2) (2026-01-26)
+
+
+### Bug Fixes
+
+* **logging:** extract OAuthError details to prevent [object Object] in logs ([#43](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/43)) ([8501114](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/8501114c56013f9770b462084b62e856de85a328))
+
+
+### Miscellaneous Chores
+
+* onboard shared workflows ([#40](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/40)) ([fc2b950](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/fc2b950bc33718de609e6961eb202c9e82959235))
+
 ## [1.0.1](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.0...oauth-provider-adapters-for-mcp-v1.0.1) (2026-01-09)
 
 
