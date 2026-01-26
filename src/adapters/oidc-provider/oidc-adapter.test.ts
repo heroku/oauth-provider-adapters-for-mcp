@@ -546,4 +546,123 @@ describe('OIDCProviderAdapter', function () {
       }
     });
   });
+
+  describe('extractErrorDetails', function () {
+    let adapter: OIDCProviderAdapter;
+
+    beforeEach(function () {
+      adapter = createTestAdapter();
+    });
+
+    it('should extract message from Error instances', function () {
+      const error = new Error('Something went wrong');
+      const result = (adapter as any).extractErrorDetails(error);
+
+      expect(result.error).to.equal('Something went wrong');
+      expect(result.errorName).to.equal('Error');
+      expect(result.errorStack).to.be.a('string');
+      expect(result.errorStack).to.include('Error: Something went wrong');
+    });
+
+    it('should extract details from OAuthError objects', function () {
+      const oauthError = {
+        error: 'invalid_request',
+        error_description: 'Missing required parameter: client_id',
+        statusCode: 400,
+        endpoint: 'token',
+        issuer: 'https://auth.example.com',
+      };
+      const result = (adapter as any).extractErrorDetails(oauthError);
+
+      expect(result.error).to.equal('Missing required parameter: client_id');
+      expect(result.errorCode).to.equal('invalid_request');
+      expect(result.errorDescription).to.equal(
+        'Missing required parameter: client_id'
+      );
+      expect(result.statusCode).to.equal(400);
+      expect(result.endpoint).to.equal('token');
+      expect(result.issuer).to.equal('https://auth.example.com');
+      expect(result.rawError).to.be.a('string');
+      expect(JSON.parse(result.rawError)).to.deep.equal(oauthError);
+    });
+
+    it('should prefer error_description over error code for error field', function () {
+      const oauthError = {
+        error: 'server_error',
+        error_description: 'Internal server error occurred',
+      };
+      const result = (adapter as any).extractErrorDetails(oauthError);
+
+      expect(result.error).to.equal('Internal server error occurred');
+      expect(result.errorCode).to.equal('server_error');
+    });
+
+    it('should fall back to error code when error_description is missing', function () {
+      const oauthError = {
+        error: 'access_denied',
+        statusCode: 403,
+      };
+      const result = (adapter as any).extractErrorDetails(oauthError);
+
+      expect(result.error).to.equal('access_denied');
+      expect(result.errorCode).to.equal('access_denied');
+      expect(result.errorDescription).to.be.undefined;
+    });
+
+    it('should handle objects with status instead of statusCode', function () {
+      const errorWithStatus = {
+        error: 'unauthorized',
+        status: 401,
+      };
+      const result = (adapter as any).extractErrorDetails(errorWithStatus);
+
+      expect(result.statusCode).to.equal(401);
+    });
+
+    it('should handle plain objects with only message property', function () {
+      const errorWithMessage = {
+        message: 'Connection timeout',
+      };
+      const result = (adapter as any).extractErrorDetails(errorWithMessage);
+
+      expect(result.error).to.equal('Connection timeout');
+    });
+
+    it('should convert string errors correctly', function () {
+      const result = (adapter as any).extractErrorDetails(
+        'Simple error string'
+      );
+
+      expect(result.error).to.equal('Simple error string');
+    });
+
+    it('should handle null gracefully', function () {
+      const result = (adapter as any).extractErrorDetails(null);
+
+      expect(result.error).to.equal('null');
+    });
+
+    it('should handle undefined gracefully', function () {
+      const result = (adapter as any).extractErrorDetails(undefined);
+
+      expect(result.error).to.equal('undefined');
+    });
+
+    it('should truncate long stack traces to first 3 lines', function () {
+      const error = new Error('Test error');
+      // Manually set a long stack trace
+      error.stack = `Error: Test error
+    at Function.one (/path/to/file1.js:10:15)
+    at Function.two (/path/to/file2.js:20:25)
+    at Function.three (/path/to/file3.js:30:35)
+    at Function.four (/path/to/file4.js:40:45)
+    at Function.five (/path/to/file5.js:50:55)`;
+
+      const result = (adapter as any).extractErrorDetails(error);
+
+      const stackLines = result.errorStack.split('\n');
+      expect(stackLines.length).to.equal(3);
+      expect(result.errorStack).to.not.include('Function.four');
+    });
+  });
 });

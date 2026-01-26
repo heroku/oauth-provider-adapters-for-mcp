@@ -167,13 +167,15 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
           : undefined,
       });
     } catch (error) {
+      // Extract error details from both Error instances and OAuthError objects
+      const errorDetails = this.extractErrorDetails(error);
       this.logger.error('OIDC provider initialization failed', {
         stage: 'initialize',
         issuer: this.oidcConfig.issuer,
         discoveryUrl: this.oidcConfig.issuer
           ? `${this.oidcConfig.issuer}/.well-known/openid-configuration`
           : undefined,
-        error: error instanceof Error ? error.message : String(error),
+        ...errorDetails,
       });
       throw error;
     }
@@ -501,6 +503,36 @@ export class OIDCProviderAdapter extends BaseOAuthAdapter {
         endpoint: 'storageHook.cleanupExpiredState',
       });
     }
+  }
+
+  /**
+   * Extract error details from both Error instances and OAuthError objects
+   * for improved logging visibility
+   */
+  private extractErrorDetails(error: unknown): Record<string, unknown> {
+    if (error instanceof Error) {
+      return {
+        error: error.message,
+        errorName: error.name,
+        errorStack: error.stack?.split('\n').slice(0, 3).join('\n'),
+      };
+    }
+
+    if (error !== null && typeof error === 'object') {
+      const errorObj = error as Record<string, unknown>;
+      return {
+        error:
+          errorObj.error_description ?? errorObj.error ?? errorObj.message,
+        errorCode: errorObj.error,
+        errorDescription: errorObj.error_description,
+        statusCode: errorObj.statusCode ?? errorObj.status,
+        endpoint: errorObj.endpoint,
+        issuer: errorObj.issuer,
+        rawError: JSON.stringify(error),
+      };
+    }
+
+    return { error: String(error) };
   }
 
   /**
