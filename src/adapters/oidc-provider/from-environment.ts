@@ -70,7 +70,9 @@ export function fromEnvironment(
         IDENTITY_SERVER_METADATA_FILE,
         'utf-8'
       );
+      console.log('metadataContent:', metadataContent);
       metadata = JSON.parse(metadataContent) as OIDCProviderMetadata;
+      console.log('metadata:', metadata);
     } catch (error) {
       throw new Error(
         `Failed to load IDENTITY_SERVER_METADATA_FILE: ${error instanceof Error ? error.message : String(error)}`
