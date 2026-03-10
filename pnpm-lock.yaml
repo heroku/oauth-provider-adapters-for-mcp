@@ -48,8 +48,8 @@ importers:
         specifier: ^8.46.0
         version: 8.56.1(eslint@9.39.4)(typescript@5.9.3)
       c8:
-        specifier: ^10.1.3
-        version: 10.1.3
+        specifier: ^11.0.0
+        version: 11.0.0
       chai:
         specifier: ^6.2.0
         version: 6.2.2
@@ -567,12 +567,12 @@ packages:
         integrity: sha512-qhAVI1+Av2X7qelOfAIYwXONood6XlZE/fXaBSmW/T5SzLAmCgzi+eiWE7fUvbHaeNBQH13UftjpXxsfLkMpgw==,
       }
 
-  c8@10.1.3:
+  c8@11.0.0:
     resolution:
       {
-        integrity: sha512-LvcyrOAaOnrrlMpW22n690PUvxiq4Uf9WMhQwNJ9vgagkL/ph1+D4uvjvDA5XCbykrc0sx+ay6pVi9YZ1GnhyA==,
+        integrity: sha512-e/uRViGHSVIJv7zsaDKM7VRn2390TgHXqUSvYwPHBQaU6L7E9L0n9JbdkwdYPvshDT0KymBmmlwSpms3yBaMNg==,
       }
-    engines: { node: '>=18' }
+    engines: { node: 20 || >=22 }
     hasBin: true
     peerDependencies:
       monocart-coverage-reports: ^2
@@ -978,6 +978,13 @@ packages:
       rates) by contacting i@izs.me
     hasBin: true
 
+  glob@13.0.6:
+    resolution:
+      {
+        integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+
   globals@14.0.0:
     resolution:
       {
@@ -1241,6 +1248,13 @@ packages:
         integrity: sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==,
       }
 
+  lru-cache@11.2.6:
+    resolution:
+      {
+        integrity: sha512-ESL2CrkS/2wTPfuend7Zhkzo2u0daGJ/A2VucJOgQ/C48S/zB8MMeMHSGKYpXhIjbPxfuezITkaBH1wqv00DDQ==,
+      }
+    engines: { node: 20 || >=22 }
+
   make-dir@4.0.0:
     resolution:
       {
@@ -1292,6 +1306,13 @@ packages:
     resolution:
       {
         integrity: sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==,
+      }
+    engines: { node: '>=16 || 14 >=14.17' }
+
+  minipass@7.1.3:
+    resolution:
+      {
+        integrity: sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==,
       }
     engines: { node: '>=16 || 14 >=14.17' }
 
@@ -1389,6 +1410,13 @@ packages:
       }
     engines: { node: '>=16 || 14 >=14.18' }
 
+  path-scurry@2.0.2:
+    resolution:
+      {
+        integrity: sha512-3O/iVVsJAPsOnpwWIeD+d6z/7PmqApyQePUtCndjatj/9I5LylHvt5qluFaBT3I5h3r1ejfR056c+FCv+NnNXg==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+
   picocolors@1.1.1:
     resolution:
       {
@@ -1476,14 +1504,6 @@ packages:
       {
         integrity: sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==,
       }
-
-  semver@7.7.3:
-    resolution:
-      {
-        integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==,
-      }
-    engines: { node: '>=10' }
-    hasBin: true
 
   semver@7.7.4:
     resolution:
@@ -1623,12 +1643,12 @@ packages:
       }
     engines: { node: '>=10' }
 
-  test-exclude@7.0.1:
+  test-exclude@8.0.0:
     resolution:
       {
-        integrity: sha512-pFYqmTw68LXVjeWJMST4+borgQP2AyMNbg1BpZh9LbyhUeNkeaPF9gzfPGUAnSMV3qPYdWUwDIjjCLiSDOl7vg==,
+        integrity: sha512-ZOffsNrXYggvU1mDGHk54I96r26P8SyMjO5slMKSc7+IWmtB/MQKnEC2fP51imB3/pT6YK5cT5E8f+Dd9KdyOQ==,
       }
-    engines: { node: '>=18' }
+    engines: { node: 20 || >=22 }
 
   tinyexec@1.0.2:
     resolution:
@@ -2139,7 +2159,7 @@ snapshots:
 
   browser-stdout@1.3.1: {}
 
-  c8@10.1.3:
+  c8@11.0.0:
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@istanbuljs/schema': 0.1.3
@@ -2148,7 +2168,7 @@ snapshots:
       istanbul-lib-coverage: 3.2.2
       istanbul-lib-report: 3.0.1
       istanbul-reports: 3.2.0
-      test-exclude: 7.0.1
+      test-exclude: 8.0.0
       v8-to-istanbul: 9.3.0
       yargs: 17.7.2
       yargs-parser: 21.1.1
@@ -2361,6 +2381,12 @@ snapshots:
       package-json-from-dist: 1.0.1
       path-scurry: 1.11.1
 
+  glob@13.0.6:
+    dependencies:
+      minimatch: 10.2.4
+      minipass: 7.1.3
+      path-scurry: 2.0.2
+
   globals@14.0.0: {}
 
   has-flag@4.0.0: {}
@@ -2495,9 +2521,11 @@ snapshots:
 
   lru-cache@10.4.3: {}
 
+  lru-cache@11.2.6: {}
+
   make-dir@4.0.0:
     dependencies:
-      semver: 7.7.3
+      semver: 7.7.4
 
   make-error@1.3.6: {}
 
@@ -2521,6 +2549,8 @@ snapshots:
       brace-expansion: 2.0.2
 
   minipass@7.1.2: {}
+
+  minipass@7.1.3: {}
 
   mocha@11.7.5:
     dependencies:
@@ -2593,6 +2623,11 @@ snapshots:
       lru-cache: 10.4.3
       minipass: 7.1.2
 
+  path-scurry@2.0.2:
+    dependencies:
+      lru-cache: 11.2.6
+      minipass: 7.1.3
+
   picocolors@1.1.1: {}
 
   picomatch@2.3.1: {}
@@ -2623,8 +2658,6 @@ snapshots:
   rfdc@1.4.1: {}
 
   safe-buffer@5.2.1: {}
-
-  semver@7.7.3: {}
 
   semver@7.7.4: {}
 
@@ -2705,11 +2738,11 @@ snapshots:
     dependencies:
       has-flag: 4.0.0
 
-  test-exclude@7.0.1:
+  test-exclude@8.0.0:
     dependencies:
       '@istanbuljs/schema': 0.1.3
-      glob: 10.5.0
-      minimatch: 9.0.9
+      glob: 13.0.6
+      minimatch: 10.2.4
 
   tinyexec@1.0.2: {}
 
