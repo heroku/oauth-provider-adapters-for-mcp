@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.2...oauth-provider-adapters-for-mcp-v1.0.3) (2026-04-20)
+
+
+### Bug Fixes
+
+* **deps:** bump http-errors from 2.0.0 to 2.0.1 ([#52](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/52)) ([57c05a1](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/57c05a1ee67181bb9dffa542e6d7bbf40d88145c))
+
 ## [1.0.2](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.1...oauth-provider-adapters-for-mcp-v1.0.2) (2026-01-26)
 
 
