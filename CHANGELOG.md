@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.3](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.2...oauth-provider-adapters-for-mcp-v1.0.3) (2026-05-07)
+
+
+### Bug Fixes
+
+* **deps:** bump http-errors from 2.0.0 to 2.0.1 ([#52](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/52)) ([57c05a1](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/57c05a1ee67181bb9dffa542e6d7bbf40d88145c))
+* **deps:** resolve GHSA-5c6j-r48x-rmvq + GHSA-qj8w-gfj5-8c6v in serialize-javascript ([#72](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/72)) ([8940514](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/8940514b5c1414d29db2147b72c230e7b9e75867))
+* **deps:** resolve GHSA-5c6j-r48x-rmvq and GHSA-qj8w-gfj5-8c6v in serialize-javascript ([8940514](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/8940514b5c1414d29db2147b72c230e7b9e75867))
+* **deps:** resolve GHSA-rf6f-7fwh-wjgh in flatted ([#71](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/71)) ([bf87715](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/bf877150b477b7f584b36ba28e99c604536b60c1))
+
 ## [1.0.2](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.1...oauth-provider-adapters-for-mcp-v1.0.2) (2026-01-26)
 
 
