@@ -78,5 +78,10 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
+  },
+  "pnpm": {
+    "overrides": {
+      "serialize-javascript": ">=7.0.5"
+    }
   }
 }
