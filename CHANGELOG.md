@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.4](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.3...oauth-provider-adapters-for-mcp-v1.0.4) (2026-06-17)
+
+
+### Dependencies
+
+* bump @eslint/js from 9.37.0 to 9.39.4 ([#65](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/65)) ([8103616](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/81036164cf0677fa56e6417209a36773130fcd4f))
+* bump zod from 4.1.12 to 4.4.3 ([#77](https://github.com/heroku/oauth-provider-adapters-for-mcp/issues/77)) ([8fc472e](https://github.com/heroku/oauth-provider-adapters-for-mcp/commit/8fc472e679fdc237ae201b17958aee31bd911e0b))
+
 ## [1.0.3](https://github.com/heroku/oauth-provider-adapters-for-mcp/compare/oauth-provider-adapters-for-mcp-v1.0.2...oauth-provider-adapters-for-mcp-v1.0.3) (2026-06-17)
 
 
